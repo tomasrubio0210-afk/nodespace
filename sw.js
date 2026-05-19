@@ -1,4 +1,4 @@
-const CACHE = 'nodespace-v1';
+const CACHE = 'nodespace-v2';
 const ASSETS = [
   './',
   './index.html',
