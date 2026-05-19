@@ -1211,6 +1211,86 @@ renderer.domElement.addEventListener('wheel',e=>{
   camRadius=Math.max(2,Math.min(80,camRadius+e.deltaY*S.camZoom));
 },{passive:true});
 
+// ================================================================
+// TOUCH SUPPORT (mobile)
+// ================================================================
+let _touchPinchDist=0, _touchLongTimer=null;
+
+function _pinchDist(t){
+  const dx=t[0].clientX-t[1].clientX, dy=t[0].clientY-t[1].clientY;
+  return Math.sqrt(dx*dx+dy*dy);
+}
+
+renderer.domElement.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  if(e.touches.length===1){
+    const t=e.touches[0];
+    mouseDownAt={x:t.clientX,y:t.clientY,t:Date.now()};
+    prevMouse={x:t.clientX,y:t.clientY};
+    _touchLongTimer=setTimeout(()=>{
+      renderer.domElement.dispatchEvent(new MouseEvent('contextmenu',{clientX:t.clientX,clientY:t.clientY,bubbles:true}));
+    },600);
+    const hit=castNodes(t);
+    if(hit){
+      dragNode=hit;
+      const n=camera.getWorldDirection(new THREE.Vector3()).negate();
+      dragPlane.setFromNormalAndCoplanarPoint(n,hit.mesh.position);
+      raycaster.setFromCamera(toNDC(t),camera);
+      const tmp=new THREE.Vector3();raycaster.ray.intersectPlane(dragPlane,tmp);
+      dragOffset.copy(hit.mesh.position).sub(tmp);
+      dragPreSnapshot=null;
+    } else { isOrbiting=true; }
+  } else if(e.touches.length===2){
+    clearTimeout(_touchLongTimer);
+    isOrbiting=false; dragNode=null; isDraggingNode=false;
+    _touchPinchDist=_pinchDist(e.touches);
+  }
+},{passive:false});
+
+renderer.domElement.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  clearTimeout(_touchLongTimer);
+  if(e.touches.length===1){
+    const t=e.touches[0];
+    const dx=t.clientX-mouseDownAt.x, dy=t.clientY-mouseDownAt.y;
+    if(dragNode&&!isDraggingNode&&Math.sqrt(dx*dx+dy*dy)>5){
+      isDraggingNode=true; dragPreSnapshot=currentSnapshot();
+      document.body.classList.add('dragging-node'); updateModeBar();
+    }
+    if(isDraggingNode&&dragNode){
+      raycaster.setFromCamera(toNDC(t),camera);
+      const tv=new THREE.Vector3();raycaster.ray.intersectPlane(dragPlane,tv);
+      dragNode.mesh.position.copy(tv.add(dragOffset));
+    } else if(isOrbiting){
+      camTheta-=(t.clientX-prevMouse.x)*S.camRotSens;
+      camPhi=Math.max(0.08,Math.min(Math.PI-0.08,camPhi+(t.clientY-prevMouse.y)*S.camRotSens));
+      prevMouse={x:t.clientX,y:t.clientY};
+    }
+  } else if(e.touches.length===2){
+    const nd=_pinchDist(e.touches);
+    camRadius=Math.max(2,Math.min(80,camRadius+(_touchPinchDist-nd)*0.05));
+    _touchPinchDist=nd;
+  }
+},{passive:false});
+
+renderer.domElement.addEventListener('touchend',e=>{
+  e.preventDefault();
+  clearTimeout(_touchLongTimer);
+  const wasDrag=isDraggingNode;
+  isOrbiting=false; isDraggingNode=false; document.body.classList.remove('dragging-node');
+  if(wasDrag){
+    if(dragPreSnapshot){undoStack.push(dragPreSnapshot);redoStack.length=0;updateUndoButtons();markModified();}
+    updateModeBar(); dragNode=null; dragPreSnapshot=null; return;
+  }
+  dragNode=null; dragPreSnapshot=null;
+  if(e.changedTouches.length===1){
+    const t=e.changedTouches[0];
+    const dx=t.clientX-mouseDownAt.x, dy=t.clientY-mouseDownAt.y;
+    if(Math.sqrt(dx*dx+dy*dy)<6&&Date.now()-mouseDownAt.t<450) handleClick(t);
+  }
+  updateModeBar();
+},{passive:false});
+
 function handleClick(e){
   const now=Date.now();
   const dx=e.clientX-lastClick.x,dy=e.clientY-lastClick.y;
