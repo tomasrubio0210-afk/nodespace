@@ -1,0 +1,1946 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>NodeSpace 3D</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#040d1e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NodeSpace">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+/* ===== BASE ===== */
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#040d1e;overflow:hidden;width:100vw;height:100vh;}
+#canvas-container{position:fixed;top:0;left:0;width:100%;height:100%;}
+canvas{display:block;}
+
+/* ===== LABELS ===== */
+#labels-container{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;}
+.node-label{position:absolute;text-align:center;pointer-events:none;transform:translate(-50%,0);white-space:nowrap;user-select:none;transition:opacity 0.15s;}
+.node-label-name{display:block;color:#c8e4ff;font-size:12px;font-weight:500;letter-spacing:0.4px;text-shadow:0 0 10px rgba(80,170,255,0.9),0 0 22px rgba(40,100,200,0.5);}
+.node-label-cat{display:inline-block;margin-top:2px;font-size:9px;padding:1px 6px;border-radius:8px;font-weight:600;letter-spacing:0.3px;}
+.node-label.editing{pointer-events:all;}
+.node-label input{background:rgba(4,15,40,0.94);border:1px solid #4aa8ff;color:#e0f0ff;font-family:inherit;font-size:12px;padding:3px 10px;border-radius:5px;outline:none;text-align:center;width:130px;box-shadow:0 0 12px rgba(74,168,255,0.4);}
+
+/* ===== PANEL ===== */
+#panel{position:fixed;top:16px;right:16px;width:310px;background:rgba(4,12,30,0.87);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(60,120,220,0.28);border-radius:16px;z-index:100;color:#b8d8f0;font-size:13px;box-shadow:0 8px 40px rgba(0,10,40,0.65),inset 0 1px 0 rgba(100,180,255,0.07);transition:width 0.25s;}
+#panel.collapsed{width:52px;}
+#panel-header{display:flex;align-items:center;gap:9px;padding:14px 16px;border-bottom:1px solid rgba(60,120,220,0.18);}
+#panel-dot{width:8px;height:8px;border-radius:50%;background:#4aa8ff;box-shadow:0 0 7px #4aa8ff;flex-shrink:0;}
+#panel-title-text{font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#3a8adb;flex:1;overflow:hidden;white-space:nowrap;}
+#panel-undo-redo{display:flex;gap:4px;flex-shrink:0;}
+.ur-btn{width:24px;height:24px;border-radius:6px;border:1px solid rgba(60,120,220,0.3);background:rgba(20,55,120,0.3);color:#5a9acc;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
+.ur-btn:hover{background:rgba(40,90,190,0.4);color:#c0deff;}
+.ur-btn:disabled{opacity:0.25;cursor:not-allowed;}
+#panel-toggle{width:26px;height:26px;border-radius:7px;border:1px solid rgba(60,120,220,0.3);background:rgba(20,55,120,0.3);color:#5a9acc;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.18s;user-select:none;}
+#panel-toggle:hover{background:rgba(40,90,190,0.4);color:#c0deff;}
+#panel-body{padding:14px 16px 16px;max-height:calc(100vh - 90px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(60,120,220,0.3) transparent;}
+#panel-body::-webkit-scrollbar{width:4px;}
+#panel-body::-webkit-scrollbar-thumb{background:rgba(60,120,220,0.3);border-radius:4px;}
+#panel.collapsed #panel-title-text,#panel.collapsed #panel-undo-redo,#panel.collapsed #panel-body{display:none;}
+.panel-section{margin-bottom:13px;}
+.panel-label{display:block;font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:#3a6a9a;margin-bottom:6px;}
+.panel-input{width:100%;background:rgba(8,20,50,0.6);border:1px solid rgba(60,120,220,0.3);color:#d8eaff;padding:7px 10px;border-radius:8px;font-family:inherit;font-size:13px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;}
+.panel-input:focus{border-color:rgba(74,168,255,0.75);box-shadow:0 0 8px rgba(74,168,255,0.2);}
+.panel-input[type="range"]{padding:0;height:20px;background:none;border:none;accent-color:#4aa8ff;cursor:pointer;}
+.panel-input[type="color"]{height:32px;padding:2px 4px;cursor:pointer;border-radius:8px;}
+.row{display:flex;gap:8px;}.row>div{flex:1;}
+.btn{display:block;width:100%;padding:8px 12px;margin-bottom:6px;border:1px solid rgba(60,120,220,0.38);border-radius:8px;background:rgba(20,55,120,0.28);color:#b0cce8;font-family:inherit;font-size:12px;letter-spacing:0.8px;cursor:pointer;transition:all 0.18s;text-transform:uppercase;text-align:center;}
+.btn:hover{background:rgba(40,90,190,0.38);border-color:rgba(74,168,255,0.65);color:#d8ecff;box-shadow:0 0 10px rgba(74,168,255,0.13);}
+.btn.active{background:rgba(40,90,190,0.55);border-color:#4aa8ff;color:#fff;box-shadow:0 0 13px rgba(74,168,255,0.25);}
+.btn.danger{border-color:rgba(200,60,60,0.38);background:rgba(120,20,20,0.2);color:#d08080;}
+.btn.danger:hover{background:rgba(180,40,40,0.3);border-color:rgba(255,90,90,0.55);color:#ffb0b0;}
+.btn.success{border-color:rgba(40,180,100,0.42);background:rgba(10,80,40,0.22);color:#80d8a0;}
+.btn.success:hover{background:rgba(20,120,60,0.32);border-color:rgba(60,220,130,0.55);color:#c0ffda;}
+.btn.note-btn{border-color:rgba(180,140,40,0.42);background:rgba(80,55,10,0.22);color:#d4c070;}
+.btn.note-btn:hover{background:rgba(120,90,15,0.32);border-color:rgba(255,210,60,0.55);color:#ffee90;}
+.divider{border:none;border-top:1px solid rgba(60,120,220,0.14);margin:11px 0;}
+.info-text{font-size:11px;color:#486880;line-height:2.0;}
+.kbd{display:inline-block;background:rgba(30,60,120,0.45);border:1px solid rgba(60,120,220,0.32);border-radius:4px;padding:1px 5px;font-size:10px;color:#6aaccc;font-family:'Courier New',monospace;}
+.stats-row{display:flex;justify-content:space-between;font-size:11px;color:#3a6080;}
+.stats-val{color:#4a90c0;font-weight:700;}
+.cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:4px;}
+.cat-pill{padding:5px 4px;border-radius:7px;font-size:10px;cursor:pointer;border:1px solid rgba(60,120,220,0.25);background:rgba(8,18,50,0.5);color:#608090;text-align:center;transition:all 0.15s;user-select:none;white-space:nowrap;overflow:hidden;}
+.cat-pill.selected{color:#fff;font-weight:600;}
+.cat-filter-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;}
+.cat-filter-pill{padding:4px 4px;border-radius:6px;font-size:10px;cursor:pointer;border:1px solid rgba(60,120,220,0.2);background:rgba(8,18,50,0.4);color:#607090;text-align:center;transition:all 0.15s;user-select:none;}
+.cat-filter-pill.active{color:#d0e8ff;}
+.cat-filter-pill.inactive{opacity:0.32;}
+
+/* ===== SAVE STATUS ===== */
+#save-status{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:150;background:rgba(4,12,30,0.9);backdrop-filter:blur(12px);border:1px solid rgba(60,120,220,0.25);border-radius:20px;padding:5px 14px;font-size:10px;letter-spacing:1px;color:#3a6080;display:flex;align-items:center;gap:7px;pointer-events:none;opacity:0;transition:opacity 0.4s;}
+#save-status.visible{opacity:1;}
+#save-dot{width:6px;height:6px;border-radius:50%;background:#3a6080;flex-shrink:0;}
+#save-status.saved #save-dot{background:#40cc80;box-shadow:0 0 5px #40cc80;}
+#save-status.modified #save-dot{background:#ffaa30;box-shadow:0 0 5px #ffaa30;}
+#save-status.nosave #save-dot{background:#ff5555;box-shadow:0 0 5px #ff5555;}
+
+/* ===== SEARCH BAR ===== */
+#search-bar{position:fixed;top:18px;left:50%;transform:translateX(-50%);width:340px;z-index:200;display:none;flex-direction:column;}
+#search-bar.open{display:flex;}
+#search-wrap{display:flex;align-items:center;gap:8px;background:rgba(4,12,30,0.96);backdrop-filter:blur(18px);border:1px solid rgba(74,168,255,0.5);border-radius:12px;padding:8px 12px;box-shadow:0 6px 30px rgba(0,10,50,0.7);}
+#search-input{flex:1;background:transparent;border:none;outline:none;color:#d8eaff;font-family:inherit;font-size:14px;}
+#search-input::placeholder{color:#2a5070;}
+#search-count{font-size:11px;color:#3a6080;flex-shrink:0;white-space:nowrap;}
+#search-nav{display:flex;gap:4px;flex-shrink:0;}
+.search-nav-btn{width:22px;height:22px;border-radius:5px;border:1px solid rgba(60,120,220,0.3);background:rgba(20,55,120,0.3);color:#5a9acc;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
+.search-nav-btn:hover{background:rgba(40,90,190,0.4);color:#c0deff;}
+#search-results{background:rgba(4,12,30,0.96);border:1px solid rgba(60,120,220,0.25);border-top:none;border-radius:0 0 12px 12px;max-height:180px;overflow-y:auto;}
+.search-item{padding:8px 14px;font-size:12px;color:#90bcd8;cursor:pointer;border-bottom:1px solid rgba(60,120,220,0.1);transition:background 0.13s;display:flex;align-items:center;gap:8px;}
+.search-item:last-child{border-bottom:none;}
+.search-item:hover,.search-item.active{background:rgba(40,90,190,0.25);color:#d0e8ff;}
+.search-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+
+/* ===== NOTES MODAL (rich text) ===== */
+#modal-overlay{position:fixed;inset:0;background:rgba(0,5,20,0.6);z-index:290;display:none;backdrop-filter:blur(3px);}
+#modal-overlay.open{display:block;}
+#notes-modal{position:fixed;z-index:300;display:none;top:50%;left:50%;transform:translate(-50%,-50%);width:680px;max-width:96vw;max-height:92vh;background:rgba(4,12,32,0.98);backdrop-filter:blur(22px);border:1px solid rgba(74,168,255,0.35);border-radius:16px;box-shadow:0 16px 60px rgba(0,5,30,0.85);flex-direction:column;overflow:hidden;}
+/* Connection list in panel */
+.conn-list{margin-top:4px;}
+.conn-item{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:6px;background:rgba(8,18,50,0.4);border:1px solid rgba(60,120,220,0.18);margin-bottom:4px;font-size:11px;color:#7aaac8;}
+.conn-item-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.conn-item-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.conn-item-del{width:20px;height:20px;border-radius:4px;border:1px solid rgba(200,60,60,0.3);background:rgba(100,20,20,0.2);color:#c08080;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.13s;}
+.conn-item-del:hover{background:rgba(180,40,40,0.35);color:#ffb0b0;border-color:rgba(255,80,80,0.5);}
+.conn-empty{font-size:11px;color:#2a4860;font-style:italic;padding:4px 2px;}
+#notes-modal.open{display:flex;}
+#notes-header{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid rgba(60,120,220,0.2);flex-shrink:0;}
+#notes-header-left{flex:1;}
+#notes-title{font-size:11px;letter-spacing:1.5px;color:#4a7aaa;text-transform:uppercase;margin-bottom:2px;}
+#notes-node-name{font-size:16px;font-weight:600;color:#d0e8ff;}
+#notes-close{width:28px;height:28px;border-radius:7px;border:1px solid rgba(60,120,220,0.3);background:rgba(20,55,120,0.3);color:#5a9acc;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0;}
+#notes-close:hover{background:rgba(180,40,40,0.3);color:#ffb0b0;border-color:rgba(200,60,60,0.4);}
+
+/* Rich text toolbar */
+#notes-toolbar{display:flex;flex-wrap:wrap;gap:4px;padding:10px 14px;border-bottom:1px solid rgba(60,120,220,0.15);background:rgba(6,16,40,0.5);flex-shrink:0;}
+.tb-btn{min-width:28px;height:28px;padding:0 6px;border-radius:6px;border:1px solid rgba(60,120,220,0.22);background:rgba(15,35,90,0.4);color:#7aaad0;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.14s;font-family:inherit;white-space:nowrap;}
+.tb-btn:hover{background:rgba(40,90,190,0.35);color:#c8e4ff;border-color:rgba(74,168,255,0.4);}
+.tb-btn.active{background:rgba(40,90,190,0.55);color:#fff;border-color:#4aa8ff;}
+.tb-sep{width:1px;height:24px;background:rgba(60,120,220,0.2);margin:0 3px;align-self:center;flex-shrink:0;}
+.tb-select{height:28px;padding:0 6px;border-radius:6px;border:1px solid rgba(60,120,220,0.22);background:rgba(15,35,90,0.55);color:#7aaad0;font-size:12px;cursor:pointer;outline:none;transition:all 0.14s;font-family:inherit;}
+.tb-select:hover,.tb-select:focus{background:rgba(30,65,150,0.5);color:#c8e4ff;border-color:rgba(74,168,255,0.4);}
+.tb-select option{background:#0a1a3a;color:#c8e4ff;}
+.tb-color{width:28px;height:28px;border-radius:6px;border:1px solid rgba(60,120,220,0.22);padding:2px;cursor:pointer;background:rgba(15,35,90,0.4);}
+
+/* Notes editor area */
+#notes-editor{flex:1;min-height:430px;max-height:64vh;overflow-y:auto;background:rgba(5,14,38,0.6);color:#c8e0f8;font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;line-height:1.7;padding:20px 24px;outline:none;scrollbar-width:thin;scrollbar-color:rgba(60,120,220,0.3) transparent;}
+#notes-editor::-webkit-scrollbar{width:4px;}
+#notes-editor::-webkit-scrollbar-thumb{background:rgba(60,120,220,0.3);border-radius:4px;}
+#notes-editor:empty::before{content:attr(data-placeholder);color:#2a4860;pointer-events:none;}
+#notes-editor h1{font-size:22px;color:#90c8f8;margin-bottom:8px;font-weight:700;}
+#notes-editor h2{font-size:18px;color:#80b8e8;margin-bottom:6px;font-weight:600;}
+#notes-editor blockquote{border-left:3px solid #2a5a9a;padding-left:14px;color:#7aaac8;margin:8px 0;font-style:italic;}
+#notes-editor ul,#notes-editor ol{padding-left:22px;margin:6px 0;}
+#notes-editor li{margin:3px 0;}
+#notes-editor a{color:#5ab0ff;}
+
+#notes-footer{display:flex;gap:8px;padding:12px 18px;border-top:1px solid rgba(60,120,220,0.15);flex-shrink:0;}
+.notes-btn{flex:1;padding:8px;border-radius:8px;font-family:inherit;font-size:12px;letter-spacing:0.8px;text-transform:uppercase;cursor:pointer;transition:all 0.18s;}
+#notes-save{background:rgba(20,80,170,0.4);border:1px solid rgba(74,168,255,0.45);color:#90c8ff;}
+#notes-save:hover{background:rgba(30,100,210,0.5);color:#d0eaff;}
+#notes-cancel{background:rgba(20,20,50,0.4);border:1px solid rgba(60,80,150,0.3);color:#607898;}
+#notes-cancel:hover{background:rgba(30,30,70,0.5);color:#8098b8;}
+
+/* ===== CONTEXT MENU ===== */
+#ctx-menu{position:fixed;z-index:400;background:rgba(4,12,32,0.97);backdrop-filter:blur(20px);border:1px solid rgba(60,120,220,0.3);border-radius:12px;padding:5px 0;min-width:175px;box-shadow:0 10px 40px rgba(0,5,30,0.8);display:none;}
+#ctx-menu.open{display:block;}
+.ctx-item{padding:8px 15px;font-size:12px;color:#90bcd8;cursor:pointer;display:flex;align-items:center;gap:9px;transition:background 0.12s;letter-spacing:0.3px;white-space:nowrap;}
+.ctx-item:hover{background:rgba(40,90,190,0.28);color:#d8ecff;}
+.ctx-item.danger{color:#c08080;}
+.ctx-item.danger:hover{background:rgba(150,30,30,0.3);color:#ffb0b0;}
+.ctx-item.disabled{opacity:0.35;cursor:default;pointer-events:none;}
+.ctx-sep{height:1px;background:rgba(60,120,220,0.15);margin:4px 0;}
+.ctx-icon{width:16px;text-align:center;flex-shrink:0;}
+
+/* ===== ESC SETTINGS OVERLAY ===== */
+#settings-overlay{
+  position:fixed;inset:0;z-index:500;
+  background:rgba(1,5,18,0.88);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  display:none;align-items:center;justify-content:center;
+}
+#settings-overlay.open{display:flex;}
+#settings-panel{
+  width:560px;max-width:96vw;max-height:90vh;
+  background:rgba(4,12,32,0.97);border:1px solid rgba(60,120,220,0.3);
+  border-radius:20px;overflow:hidden;display:flex;flex-direction:column;
+  box-shadow:0 20px 80px rgba(0,5,40,0.9),0 0 40px rgba(20,60,180,0.1);
+}
+#settings-header{
+  display:flex;align-items:center;gap:12px;padding:18px 22px;
+  border-bottom:1px solid rgba(60,120,220,0.18);flex-shrink:0;
+}
+#settings-title{font-size:13px;letter-spacing:3px;text-transform:uppercase;color:#3a8adb;flex:1;}
+#settings-hint{font-size:11px;color:#2a4860;letter-spacing:0.5px;}
+#settings-close{width:32px;height:32px;border-radius:8px;border:1px solid rgba(60,120,220,0.3);background:rgba(20,55,120,0.3);color:#5a9acc;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
+#settings-close:hover{background:rgba(180,40,40,0.3);color:#ffb0b0;border-color:rgba(200,60,60,0.4);}
+/* Tabs */
+#settings-tabs{display:flex;border-bottom:1px solid rgba(60,120,220,0.15);flex-shrink:0;}
+.stab{flex:1;padding:11px 6px;text-align:center;font-size:11px;letter-spacing:0.8px;text-transform:uppercase;color:#3a6080;cursor:pointer;transition:all 0.18s;border-bottom:2px solid transparent;}
+.stab:hover{color:#6a9ac0;background:rgba(30,60,130,0.15);}
+.stab.active{color:#4aa8ff;border-bottom-color:#4aa8ff;background:rgba(30,60,130,0.12);}
+#settings-body{flex:1;overflow-y:auto;padding:22px;scrollbar-width:thin;scrollbar-color:rgba(60,120,220,0.3) transparent;}
+#settings-body::-webkit-scrollbar{width:4px;}
+#settings-body::-webkit-scrollbar-thumb{background:rgba(60,120,220,0.3);border-radius:4px;}
+.s-section{margin-bottom:22px;}
+.s-section-title{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#2a5878;margin-bottom:12px;padding-bottom:7px;border-bottom:1px solid rgba(60,120,220,0.1);}
+.s-row{display:flex;align-items:center;margin-bottom:10px;gap:12px;}
+.s-label{font-size:12px;color:#6090b0;flex:1;letter-spacing:0.3px;}
+.s-control{display:flex;align-items:center;gap:8px;}
+.s-input{background:rgba(8,20,50,0.6);border:1px solid rgba(60,120,220,0.28);color:#d0e8ff;padding:5px 9px;border-radius:7px;font-family:inherit;font-size:12px;outline:none;transition:border-color 0.2s;}
+.s-input:focus{border-color:rgba(74,168,255,0.6);}
+.s-input[type="range"]{width:140px;height:18px;background:none;border:none;accent-color:#4aa8ff;cursor:pointer;padding:0;}
+.s-input[type="color"]{width:38px;height:28px;padding:1px 3px;cursor:pointer;border-radius:6px;}
+.s-input[type="number"]{width:64px;}
+.s-toggle{position:relative;width:42px;height:22px;cursor:pointer;}
+.s-toggle input{opacity:0;width:0;height:0;}
+.s-toggle-track{position:absolute;inset:0;background:rgba(20,40,100,0.5);border-radius:11px;border:1px solid rgba(60,120,220,0.3);transition:background 0.2s;}
+.s-toggle input:checked+.s-toggle-track{background:rgba(40,100,220,0.6);border-color:#4aa8ff;}
+.s-toggle-thumb{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#3a6a9a;transition:all 0.2s;}
+.s-toggle input:checked~.s-toggle-thumb{left:23px;background:#4aa8ff;box-shadow:0 0 5px #4aa8ff;}
+.s-val{font-size:11px;color:#4a7a9a;width:32px;text-align:right;}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+
+/* ===== MINIMAP ===== */
+#minimap-wrap{position:fixed;bottom:52px;left:16px;z-index:100;border-radius:12px;overflow:hidden;border:1px solid rgba(60,120,220,0.28);box-shadow:0 4px 20px rgba(0,5,30,0.6);transition:opacity 0.2s;}
+#minimap-wrap.collapsed{display:none;}
+#minimap-canvas{display:block;width:180px;height:140px;}
+#minimap-toggle{position:fixed;bottom:16px;left:16px;z-index:101;width:40px;height:30px;border-radius:8px;border:1px solid rgba(60,120,220,0.28);background:rgba(4,12,30,0.85);backdrop-filter:blur(10px);color:#3a6a9a;font-size:10px;letter-spacing:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
+#minimap-toggle:hover{background:rgba(20,55,120,0.5);color:#7aaccc;}
+
+/* ===== MODE BAR ===== */
+#mode-bar{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:rgba(4,12,30,0.85);backdrop-filter:blur(12px);border:1px solid rgba(60,120,220,0.3);border-radius:20px;padding:6px 20px;color:#4aa8ff;font-size:11px;letter-spacing:2px;text-transform:uppercase;z-index:100;transition:all 0.25s;white-space:nowrap;pointer-events:none;}
+body.dragging-node,body.dragging-node *{cursor:grabbing !important;}
+#toast{position:fixed;bottom:62px;left:50%;transform:translateX(-50%);background:rgba(4,12,30,0.96);border:1px solid rgba(74,168,255,0.42);border-radius:10px;padding:8px 18px;color:#90d0ff;font-size:11px;letter-spacing:0.8px;z-index:600;opacity:0;transition:opacity 0.3s;pointer-events:none;}
+#toast.show{opacity:1;}
+#file-input{display:none;}
+</style>
+</head>
+<body>
+<div id="canvas-container"></div>
+<div id="labels-container"></div>
+<input type="file" id="file-input" accept=".json"/>
+<div id="toast"></div>
+
+<!-- Save status indicator -->
+<div id="save-status"><div id="save-dot"></div><span id="save-status-text">Sin guardar</span></div>
+
+<!-- Search bar -->
+<div id="search-bar">
+  <div id="search-wrap">
+    <span style="color:#3a7acc;font-size:14px;flex-shrink:0;">🔍</span>
+    <input id="search-input" type="text" placeholder="Buscar nodo por nombre..." autocomplete="off"/>
+    <span id="search-count"></span>
+    <div id="search-nav">
+      <button class="search-nav-btn" id="search-prev">▲</button>
+      <button class="search-nav-btn" id="search-next">▼</button>
+    </div>
+  </div>
+  <div id="search-results"></div>
+</div>
+
+<!-- Notes modal -->
+<div id="modal-overlay"></div>
+<div id="notes-modal">
+  <div id="notes-header">
+    <div id="notes-header-left">
+      <div id="notes-title">Notas del nodo</div>
+      <div id="notes-node-name"></div>
+    </div>
+    <button id="notes-close">✕</button>
+  </div>
+  <!-- Rich text toolbar -->
+  <div id="notes-toolbar">
+    <!-- Format -->
+    <button class="tb-btn" data-cmd="bold" title="Negrita (Ctrl+B)"><b>B</b></button>
+    <button class="tb-btn" data-cmd="italic" title="Cursiva (Ctrl+I)"><i>I</i></button>
+    <button class="tb-btn" data-cmd="underline" title="Subrayado (Ctrl+U)"><u>U</u></button>
+    <button class="tb-btn" data-cmd="strikeThrough" title="Tachado"><s>S</s></button>
+    <div class="tb-sep"></div>
+    <!-- Heading -->
+    <button class="tb-btn" data-cmd="formatBlock" data-val="h1" title="Título 1">H1</button>
+    <button class="tb-btn" data-cmd="formatBlock" data-val="h2" title="Título 2">H2</button>
+    <button class="tb-btn" data-cmd="formatBlock" data-val="blockquote" title="Cita">❝</button>
+    <div class="tb-sep"></div>
+    <!-- Align -->
+    <button class="tb-btn" data-cmd="justifyLeft" title="Izquierda">⬅</button>
+    <button class="tb-btn" data-cmd="justifyCenter" title="Centro">↔</button>
+    <button class="tb-btn" data-cmd="justifyRight" title="Derecha">➡</button>
+    <div class="tb-sep"></div>
+    <!-- Lists -->
+    <button class="tb-btn" data-cmd="insertUnorderedList" title="Lista con viñetas">•≡</button>
+    <button class="tb-btn" data-cmd="insertOrderedList" title="Lista numerada">1≡</button>
+    <div class="tb-sep"></div>
+    <!-- Font -->
+    <select class="tb-select" id="tb-font" title="Fuente">
+      <option value="Segoe UI">Segoe UI</option>
+      <option value="Georgia">Georgia</option>
+      <option value="Courier New">Courier New</option>
+      <option value="Arial">Arial</option>
+      <option value="Trebuchet MS">Trebuchet</option>
+    </select>
+    <select class="tb-select" id="tb-size" title="Tamaño">
+      <option value="12">12px</option>
+      <option value="14" selected>14px</option>
+      <option value="16">16px</option>
+      <option value="18">18px</option>
+      <option value="22">22px</option>
+      <option value="28">28px</option>
+    </select>
+    <div class="tb-sep"></div>
+    <!-- Color -->
+    <input class="tb-color" type="color" id="tb-color" value="#c8e0f8" title="Color de texto"/>
+    <input class="tb-color" type="color" id="tb-bgcolor" value="#1a3060" title="Color de fondo"/>
+    <div class="tb-sep"></div>
+    <!-- Line height -->
+    <select class="tb-select" id="tb-lh" title="Interlineado">
+      <option value="1.2">1.2×</option>
+      <option value="1.5">1.5×</option>
+      <option value="1.7" selected>1.7×</option>
+      <option value="2.0">2.0×</option>
+      <option value="2.5">2.5×</option>
+    </select>
+    <div class="tb-sep"></div>
+    <!-- Clear -->
+    <button class="tb-btn" data-cmd="removeFormat" title="Limpiar formato">✕fmt</button>
+  </div>
+  <!-- Editor area -->
+  <div id="notes-editor" contenteditable="true" data-placeholder="Escribe aquí las notas de este nodo..."></div>
+  <div id="notes-footer">
+    <button class="notes-btn" id="notes-save">💾 Guardar</button>
+    <button class="notes-btn" id="notes-cancel">Cancelar</button>
+  </div>
+</div>
+
+<!-- Context menu -->
+<div id="ctx-menu">
+  <div class="ctx-item" id="ctx-edit-name"><span class="ctx-icon">✏️</span>Editar nombre</div>
+  <div class="ctx-item" id="ctx-open-notes"><span class="ctx-icon">📝</span>Notas</div>
+  <div class="ctx-item" id="ctx-connect-node"><span class="ctx-icon">⟷</span>Conectar con...</div>
+  <div class="ctx-item" id="ctx-duplicate"><span class="ctx-icon">📋</span>Duplicar</div>
+  <div class="ctx-item" id="ctx-disconnect" style="display:none"><span class="ctx-icon">✂</span>Desconectar de...</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" id="ctx-add-here"><span class="ctx-icon">＋</span>Nuevo nodo aquí</div>
+  <div class="ctx-item" id="ctx-undo-ctx"><span class="ctx-icon">↩</span>Deshacer<span style="margin-left:auto;opacity:0.45;font-size:10px;">Ctrl+Z</span></div>
+  <div class="ctx-item" id="ctx-redo-ctx"><span class="ctx-icon">↪</span>Rehacer<span style="margin-left:auto;opacity:0.45;font-size:10px;">Ctrl+Y</span></div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item danger" id="ctx-delete-node"><span class="ctx-icon">✕</span>Eliminar</div>
+</div>
+
+<!-- ESC Settings Overlay -->
+<div id="settings-overlay">
+  <div id="settings-panel">
+    <div id="settings-header">
+      <div id="settings-title">⚙ Configuración del espacio</div>
+      <div id="settings-hint">ESC para cerrar</div>
+      <button id="settings-close">✕</button>
+    </div>
+    <div id="settings-tabs">
+      <div class="stab active" data-tab="visual">🌌 Visual</div>
+      <div class="stab" data-tab="grid">⊞ Cuadrícula</div>
+      <div class="stab" data-tab="particles">✦ Partículas</div>
+      <div class="stab" data-tab="nodes">⬤ Nodos</div>
+      <div class="stab" data-tab="camera">📷 Cámara</div>
+      <div class="stab" data-tab="effects">✨ Efectos</div>
+    </div>
+    <div id="settings-body">
+
+      <!-- Visual tab -->
+      <div class="tab-content active" id="tab-visual">
+        <div class="s-section">
+          <div class="s-section-title">Fondo y atmósfera</div>
+          <div class="s-row">
+            <span class="s-label">Color de fondo</span>
+            <div class="s-control"><input class="s-input" type="color" id="s-bg-color" value="#03080f"/></div>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Niebla (fog)</span>
+            <div class="s-control">
+              <label class="s-toggle"><input type="checkbox" id="s-fog-on" checked/><div class="s-toggle-track"></div><div class="s-toggle-thumb"></div></label>
+            </div>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Densidad de niebla</span>
+            <div class="s-control"><input class="s-input" type="range" id="s-fog-density" min="0.005" max="0.08" step="0.002" value="0.024"/><span class="s-val" id="s-fog-density-val">0.024</span></div>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Color de niebla</span>
+            <div class="s-control"><input class="s-input" type="color" id="s-fog-color" value="#03080f"/></div>
+          </div>
+        </div>
+        <div class="s-section">
+          <div class="s-section-title">Iluminación</div>
+          <div class="s-row">
+            <span class="s-label">Luz ambiental</span>
+            <div class="s-control"><input class="s-input" type="color" id="s-amb-color" value="#0a1a44"/><input class="s-input" type="range" id="s-amb-int" min="0" max="3" step="0.1" value="1.2"/><span class="s-val" id="s-amb-int-val">1.2</span></div>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Luz puntual principal</span>
+            <div class="s-control"><input class="s-input" type="color" id="s-light1-color" value="#3366ff"/><input class="s-input" type="range" id="s-light1-int" min="0" max="5" step="0.1" value="2.5"/><span class="s-val" id="s-light1-int-val">2.5</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grid tab -->
+      <div class="tab-content" id="tab-grid">
+        <div class="s-section">
+          <div class="s-section-title">Cuadrícula de piso</div>
+          <div class="s-row">
+            <span class="s-label">Visible</span>
+            <label class="s-toggle"><input type="checkbox" id="s-grid-on" checked/><div class="s-toggle-track"></div><div class="s-toggle-thumb"></div></label>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Color principal</span>
+            <div class="s-control"><input class="s-input" type="color" id="s-grid-color1" value="#071840"/></div>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Color secundario</span>
+            <div class="s-control"><input class="s-input" type="color" id="s-grid-color2" value="#040d28"/></div>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Posición vertical</span>
+            <div class="s-control"><input class="s-input" type="range" id="s-grid-y" min="-12" max="0" step="0.5" value="-4"/><span class="s-val" id="s-grid-y-val">-4</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Particles tab -->
+      <div class="tab-content" id="tab-particles">
+        <div class="s-section">
+          <div class="s-section-title">Estrellas de fondo</div>
+          <div class="s-row">
+            <span class="s-label">Visible</span>
+            <label class="s-toggle"><input type="checkbox" id="s-stars-on" checked/><div class="s-toggle-track"></div><div class="s-toggle-thumb"></div></label>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Color</span>
+            <div class="s-control"><input class="s-input" type="color" id="s-stars-color" value="#1a3a88"/></div>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Tamaño</span>
+            <div class="s-control"><input class="s-input" type="range" id="s-stars-size" min="0.02" max="0.3" step="0.01" value="0.07"/><span class="s-val" id="s-stars-size-val">0.07</span></div>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Opacidad</span>
+            <div class="s-control"><input class="s-input" type="range" id="s-stars-opacity" min="0.1" max="1" step="0.05" value="0.5"/><span class="s-val" id="s-stars-opacity-val">0.5</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Nodes tab -->
+      <div class="tab-content" id="tab-nodes">
+        <div class="s-section">
+          <div class="s-section-title">Nodos y conexiones</div>
+          <div class="s-row">
+            <span class="s-label">Brillo de nodos (glow)</span>
+            <div class="s-control"><input class="s-input" type="range" id="s-glow-int" min="0" max="0.6" step="0.02" value="0.16"/><span class="s-val" id="s-glow-int-val">0.16</span></div>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Opacidad de conexiones</span>
+            <div class="s-control"><input class="s-input" type="range" id="s-conn-opacity" min="0.1" max="1" step="0.05" value="0.55"/><span class="s-val" id="s-conn-opacity-val">0.55</span></div>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Color base de conexiones</span>
+            <div class="s-control"><input class="s-input" type="color" id="s-conn-color" value="#1a44aa"/></div>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Pulso en conexiones</span>
+            <label class="s-toggle"><input type="checkbox" id="s-conn-pulse" checked/><div class="s-toggle-track"></div><div class="s-toggle-thumb"></div></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Camera tab -->
+      <div class="tab-content" id="tab-camera">
+        <div class="s-section">
+          <div class="s-section-title">Velocidad de cámara</div>
+          <div class="s-row">
+            <span class="s-label">Velocidad base (WASD)</span>
+            <div class="s-control"><input class="s-input" type="range" id="s-cam-speed" min="1" max="20" step="0.5" value="6"/><span class="s-val" id="s-cam-speed-val">6</span></div>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Multiplicador Shift</span>
+            <div class="s-control"><input class="s-input" type="range" id="s-cam-fast" min="1.5" max="8" step="0.5" value="3"/><span class="s-val" id="s-cam-fast-val">3×</span></div>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Sensibilidad de rotación</span>
+            <div class="s-control"><input class="s-input" type="range" id="s-cam-rot" min="0.001" max="0.015" step="0.001" value="0.005"/><span class="s-val" id="s-cam-rot-val">0.005</span></div>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Velocidad de zoom</span>
+            <div class="s-control"><input class="s-input" type="range" id="s-cam-zoom" min="0.005" max="0.06" step="0.005" value="0.022"/><span class="s-val" id="s-cam-zoom-val">0.022</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Effects tab -->
+      <div class="tab-content" id="tab-effects">
+        <div class="s-section">
+          <div class="s-section-title">Animación de nodos</div>
+          <div class="s-row">
+            <span class="s-label">Flotación (bobbing)</span>
+            <label class="s-toggle"><input type="checkbox" id="s-node-float"/><div class="s-toggle-track"></div><div class="s-toggle-thumb"></div></label>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Velocidad flotación</span>
+            <div class="s-control"><input class="s-input" type="range" id="s-float-speed" min="0.2" max="3" step="0.1" value="1"/><span class="s-val" id="s-float-speed-val">1</span></div>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Amplitud flotación</span>
+            <div class="s-control"><input class="s-input" type="range" id="s-float-amp" min="0.05" max="0.8" step="0.05" value="0.2"/><span class="s-val" id="s-float-amp-val">0.2</span></div>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Rotación de nodos</span>
+            <label class="s-toggle"><input type="checkbox" id="s-node-spin"/><div class="s-toggle-track"></div><div class="s-toggle-thumb"></div></label>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Velocidad rotación</span>
+            <div class="s-control"><input class="s-input" type="range" id="s-spin-speed" min="0.1" max="3" step="0.1" value="0.5"/><span class="s-val" id="s-spin-speed-val">0.5</span></div>
+          </div>
+        </div>
+        <div class="s-section">
+          <div class="s-section-title">Iluminación dinámica</div>
+          <div class="s-row">
+            <span class="s-label">Animar luz principal</span>
+            <label class="s-toggle"><input type="checkbox" id="s-light-anim" checked/><div class="s-toggle-track"></div><div class="s-toggle-thumb"></div></label>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Velocidad de luz</span>
+            <div class="s-control"><input class="s-input" type="range" id="s-light-speed" min="0.05" max="1.5" step="0.05" value="0.28"/><span class="s-val" id="s-light-speed-val">0.28</span></div>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Radio de órbita</span>
+            <div class="s-control"><input class="s-input" type="range" id="s-light-radius" min="2" max="20" step="0.5" value="6"/><span class="s-val" id="s-light-radius-val">6</span></div>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Color luz móvil</span>
+            <div class="s-control"><input class="s-input" type="color" id="s-light-color" value="#3366ff"/></div>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Pulso de selección</span>
+            <label class="s-toggle"><input type="checkbox" id="s-ring-pulse" checked/><div class="s-toggle-track"></div><div class="s-toggle-thumb"></div></label>
+          </div>
+        </div>
+        <div class="s-section">
+          <div class="s-section-title">Estrellas animadas</div>
+          <div class="s-row">
+            <span class="s-label">Rotar partículas</span>
+            <label class="s-toggle"><input type="checkbox" id="s-star-rot"/><div class="s-toggle-track"></div><div class="s-toggle-thumb"></div></label>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Velocidad rotación</span>
+            <div class="s-control"><input class="s-input" type="range" id="s-star-rot-speed" min="0.01" max="0.3" step="0.01" value="0.05"/><span class="s-val" id="s-star-rot-speed-val">0.05</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Minimap -->
+<div id="minimap-wrap">
+  <canvas id="minimap-canvas" width="360" height="280"></canvas>
+</div>
+<button id="minimap-toggle" title="Mapa">🗺</button>
+
+<!-- Panel -->
+<div id="panel">
+  <div id="panel-header">
+    <div id="panel-dot"></div>
+    <div id="panel-title-text">NodeSpace 3D</div>
+    <div id="panel-undo-redo">
+      <button class="ur-btn" id="btn-undo" title="Deshacer Ctrl+Z">↩</button>
+      <button class="ur-btn" id="btn-redo" title="Rehacer Ctrl+Y">↪</button>
+    </div>
+    <button id="panel-toggle" title="Colapsar">◀</button>
+  </div>
+  <div id="panel-body">
+    <div id="section-node" style="display:none">
+      <div class="panel-section">
+        <span class="panel-label">Nombre</span>
+        <input class="panel-input" type="text" id="inp-name" placeholder="Nombre del nodo..."/>
+      </div>
+      <div class="panel-section">
+        <div class="row">
+          <div><span class="panel-label">Color</span><input class="panel-input" type="color" id="inp-color" value="#1a55ee"/></div>
+          <div><span class="panel-label">Tamaño</span><input class="panel-input" type="range" id="inp-size" min="0.2" max="1.8" step="0.05" value="0.5"/></div>
+        </div>
+      </div>
+      <div class="panel-section">
+        <span class="panel-label">Categoría</span>
+        <div class="cat-grid" id="cat-select-grid"></div>
+      </div>
+      <div class="divider"></div>
+      <button class="btn note-btn" id="btn-notes">📝 Notas del nodo</button>
+      <button class="btn" id="btn-connect">⟷ Conectar nodo</button>
+      <button class="btn danger" id="btn-delete">✕ Eliminar nodo</button>
+      <div class="divider"></div>
+      <div class="panel-section">
+        <span class="panel-label">Conexiones del nodo</span>
+        <div class="conn-list" id="node-conn-list"><div class="conn-empty">Sin conexiones</div></div>
+      </div>
+      <div class="divider"></div>
+    </div>
+    <div id="section-default">
+      <div class="panel-section"><button class="btn" id="btn-add">+ Agregar nodo</button></div>
+      <div class="divider"></div>
+    </div>
+
+    <div class="panel-section">
+      <span class="panel-label">Búsqueda</span>
+      <button class="btn" id="btn-search">🔍 Buscar nodo<span style="float:right;opacity:0.5;font-size:10px;">Ctrl+F</span></button>
+    </div>
+
+    <div class="panel-section">
+      <span class="panel-label">Archivo</span>
+      <button class="btn success" id="btn-save">💾 Guardar<span style="float:right;opacity:0.5;font-size:10px;">Ctrl+S</span></button>
+      <button class="btn" id="btn-save-as">📤 Exportar JSON</button>
+      <button class="btn" id="btn-load">📂 Importar JSON</button>
+    </div>
+    <div class="panel-section">
+      <span class="panel-label">Slots rápidos</span>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;" id="slot-grid"></div>
+    </div>
+    <div id="file-name-row" style="font-size:10px;color:#2a5070;margin-bottom:10px;padding:0 2px;display:none;">
+      📄 <span id="file-name-label"></span>
+    </div>
+
+    <div class="divider"></div>
+    <div class="panel-section">
+      <span class="panel-label">Filtrar por categoría</span>
+      <div class="cat-filter-grid" id="cat-filter-grid"></div>
+    </div>
+    <div class="divider"></div>
+    <div class="panel-section">
+      <span class="panel-label">Controles</span>
+      <div class="info-text">
+        <span class="kbd">Drag</span> vacío → Rotar cámara<br>
+        <span class="kbd">WASD</span> → Mover · <span class="kbd">Shift</span>→ ×rápido<br>
+        <span class="kbd">Q</span>/<span class="kbd">E</span> → Subir/Bajar · <span class="kbd">Scroll</span> → Zoom<br>
+        <span class="kbd">Doble-click</span> vacío → Crear nodo<br>
+        <span class="kbd">Drag</span> nodo → Mover en 3D<br>
+        <span class="kbd">Shift+Click</span> → Conectar nodos<br>
+        <span class="kbd">Clic derecho</span> → Menú contextual<br>
+        <span class="kbd">Ctrl+Z/Y</span> → Deshacer/Rehacer<br>
+        <span class="kbd">Ctrl+F</span> → Buscar · <span class="kbd">ESC</span> → Ajustes
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="stats-row">
+      <span>Nodos <span class="stats-val" id="stat-nodes">0</span></span>
+      <span>Conexiones <span class="stats-val" id="stat-conns">0</span></span>
+    </div>
+  </div>
+</div>
+
+<div id="mode-bar">WASD mover · ESC ajustes · Doble-click agregar</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ================================================================
+// CATEGORIES
+// ================================================================
+const CATEGORIES=[
+  {id:'general',label:'General',icon:'⬤',color:'#4488ff'},
+  {id:'idea',label:'Idea',icon:'💡',color:'#ffcc00'},
+  {id:'tarea',label:'Tarea',icon:'✓',color:'#44cc88'},
+  {id:'problema',label:'Problema',icon:'⚠',color:'#ff6644'},
+  {id:'referencia',label:'Referencia',icon:'📎',color:'#aa88ff'},
+  {id:'nota',label:'Nota',icon:'📝',color:'#66aaff'},
+];
+const catById={}; CATEGORIES.forEach(c=>catById[c.id]=c);
+let categoryFilter=new Set(CATEGORIES.map(c=>c.id));
+
+const catSelectGrid=document.getElementById('cat-select-grid');
+CATEGORIES.forEach(cat=>{
+  const pill=document.createElement('div');
+  pill.className='cat-pill'; pill.dataset.catId=cat.id;
+  pill.innerHTML=`${cat.icon} ${cat.label}`;
+  pill.style.borderColor=cat.color+'55';
+  pill.addEventListener('click',()=>{if(!selectedNode)return;pushUndo();selectedNode.category=cat.id;updateNodeLabel(selectedNode);renderCatSelectGrid();});
+  catSelectGrid.appendChild(pill);
+});
+const catFilterGrid=document.getElementById('cat-filter-grid');
+CATEGORIES.forEach(cat=>{
+  const pill=document.createElement('div');
+  pill.className='cat-filter-pill active'; pill.dataset.catId=cat.id;
+  pill.innerHTML=`${cat.icon} ${cat.label}`;
+  pill.style.borderColor=cat.color+'44';
+  pill.addEventListener('click',()=>{
+    if(categoryFilter.has(cat.id)) categoryFilter.delete(cat.id);
+    else categoryFilter.add(cat.id);
+    pill.classList.toggle('active',categoryFilter.has(cat.id));
+    pill.classList.toggle('inactive',!categoryFilter.has(cat.id));
+    updateCategoryVisibility();
+  });
+  catFilterGrid.appendChild(pill);
+});
+function renderCatSelectGrid(){
+  catSelectGrid.querySelectorAll('.cat-pill').forEach(pill=>{
+    const cat=catById[pill.dataset.catId];
+    const sel=selectedNode&&selectedNode.category===pill.dataset.catId;
+    pill.classList.toggle('selected',sel);
+    pill.style.background=sel?cat.color+'30':'rgba(8,18,50,0.5)';
+    pill.style.color=sel?cat.color:'#608090';
+  });
+}
+function updateCategoryVisibility(){
+  nodes.forEach(n=>{
+    const vis=categoryFilter.has(n.category);
+    n.mesh.visible=vis;
+    n.labelEl.style.visibility=vis?'visible':'hidden';
+    n.noteDotEl.style.visibility=(vis&&n.notes.trim())?'visible':'hidden';
+  });
+}
+
+// ================================================================
+// SCENE
+// ================================================================
+const container=document.getElementById('canvas-container');
+const labelsEl =document.getElementById('labels-container');
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x03080f);
+scene.fog=new THREE.FogExp2(0x03080f,0.024);
+const camera=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,0.1,300);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(innerWidth,innerHeight);
+container.appendChild(renderer.domElement);
+
+const ambientLight=new THREE.AmbientLight(0x0a1a44,1.2); scene.add(ambientLight);
+const light1=new THREE.PointLight(0x3366ff,2.5,70); light1.position.set(0,12,0); scene.add(light1);
+const l2=new THREE.PointLight(0x0033aa,1.5,50); l2.position.set(-12,-4,8); scene.add(l2);
+const l3=new THREE.PointLight(0x1144cc,1.0,35); l3.position.set(12,6,-8); scene.add(l3);
+
+const grid=new THREE.GridHelper(100,100,0x071840,0x040d28); grid.position.y=-4; scene.add(grid);
+
+const starGeo=new THREE.BufferGeometry();
+const sp=[]; for(let i=0;i<700;i++) sp.push((Math.random()-.5)*160,(Math.random()-.5)*90,(Math.random()-.5)*160);
+starGeo.setAttribute('position',new THREE.Float32BufferAttribute(sp,3));
+const starMat=new THREE.PointsMaterial({color:0x1a3a88,size:0.07,transparent:true,opacity:0.5});
+const starPoints=new THREE.Points(starGeo,starMat); scene.add(starPoints);
+
+// ================================================================
+// SETTINGS (scene parameters)
+// ================================================================
+const S={
+  camSpeed:6, camFastMult:3, camRotSens:0.005, camZoom:0.022,
+  connOpacity:0.55, connPulse:true, connColor:0x1a44aa,
+  glowInt:0.16,
+};
+
+function applySettings(){
+  // Visual
+  const bgC=new THREE.Color(document.getElementById('s-bg-color').value);
+  scene.background=bgC;
+  const fogOn=document.getElementById('s-fog-on').checked;
+  const fogDensity=parseFloat(document.getElementById('s-fog-density').value);
+  const fogColor=new THREE.Color(document.getElementById('s-fog-color').value);
+  if(fogOn){ if(!scene.fog||scene.fog.density!==fogDensity) scene.fog=new THREE.FogExp2(fogColor,fogDensity); else {scene.fog.color.set(fogColor);scene.fog.density=fogDensity;} }
+  else scene.fog=null;
+
+  // Lights
+  ambientLight.color.set(new THREE.Color(document.getElementById('s-amb-color').value));
+  ambientLight.intensity=parseFloat(document.getElementById('s-amb-int').value);
+  light1.color.set(new THREE.Color(document.getElementById('s-light1-color').value));
+  light1.intensity=parseFloat(document.getElementById('s-light1-int').value);
+
+  // Grid
+  grid.visible=document.getElementById('s-grid-on').checked;
+  grid.position.y=parseFloat(document.getElementById('s-grid-y').value);
+
+  // Stars
+  starPoints.visible=document.getElementById('s-stars-on').checked;
+  starMat.color.set(new THREE.Color(document.getElementById('s-stars-color').value));
+  starMat.size=parseFloat(document.getElementById('s-stars-size').value);
+  starMat.opacity=parseFloat(document.getElementById('s-stars-opacity').value);
+
+  // Nodes
+  S.glowInt=parseFloat(document.getElementById('s-glow-int').value);
+  S.connOpacity=parseFloat(document.getElementById('s-conn-opacity').value);
+  S.connPulse=document.getElementById('s-conn-pulse').checked;
+  S.connColor=parseInt(document.getElementById('s-conn-color').value.slice(1),16);
+  connections.forEach(c=>{ c.mat.color.set(S.connColor); });
+
+  // Camera
+  S.camSpeed=parseFloat(document.getElementById('s-cam-speed').value);
+  S.camFastMult=parseFloat(document.getElementById('s-cam-fast').value);
+  S.camRotSens=parseFloat(document.getElementById('s-cam-rot').value);
+  S.camZoom=parseFloat(document.getElementById('s-cam-zoom').value);
+}
+
+// Settings UI wiring
+function wireSettingsSlider(id,valId,suffix=''){
+  const el=document.getElementById(id);
+  const vEl=document.getElementById(valId);
+  if(!el||!vEl) return;
+  el.addEventListener('input',()=>{vEl.textContent=parseFloat(el.value).toFixed(el.step&&el.step<0.1?3:2).replace(/\.?0+$/,'')+suffix;applySettings();});
+}
+wireSettingsSlider('s-fog-density','s-fog-density-val');
+wireSettingsSlider('s-amb-int','s-amb-int-val');
+wireSettingsSlider('s-light1-int','s-light1-int-val');
+wireSettingsSlider('s-grid-y','s-grid-y-val');
+wireSettingsSlider('s-stars-size','s-stars-size-val');
+wireSettingsSlider('s-stars-opacity','s-stars-opacity-val');
+wireSettingsSlider('s-glow-int','s-glow-int-val');
+wireSettingsSlider('s-conn-opacity','s-conn-opacity-val');
+wireSettingsSlider('s-cam-speed','s-cam-speed-val');
+wireSettingsSlider('s-cam-fast','s-cam-fast-val','×');
+wireSettingsSlider('s-cam-rot','s-cam-rot-val');
+wireSettingsSlider('s-cam-zoom','s-cam-zoom-val');
+
+['s-bg-color','s-fog-on','s-fog-color','s-amb-color','s-light1-color',
+ 's-grid-on','s-grid-color1','s-grid-color2',
+ 's-stars-on','s-stars-color','s-conn-color','s-conn-pulse'].forEach(id=>{
+  const el=document.getElementById(id); if(el) el.addEventListener('change',applySettings);
+});
+
+// Tabs
+document.querySelectorAll('.stab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-'+tab.dataset.tab).classList.add('active');
+  });
+});
+
+// Settings open/close
+let settingsOpen=false;
+function openSettings(){
+  settingsOpen=true;
+  document.getElementById('settings-overlay').classList.add('open');
+}
+function closeSettings(){
+  settingsOpen=false;
+  document.getElementById('settings-overlay').classList.remove('open');
+}
+document.getElementById('settings-close').addEventListener('click',closeSettings);
+document.getElementById('settings-overlay').addEventListener('click',e=>{
+  if(e.target===document.getElementById('settings-overlay')) closeSettings();
+});
+
+// ================================================================
+// CAMERA
+// ================================================================
+let camTheta=0.5,camPhi=1.05,camRadius=16;
+const orbitTarget=new THREE.Vector3(0,0,0);
+let isOrbiting=false,prevMouse={x:0,y:0};
+const keys={};
+document.addEventListener('keydown',e=>{
+  if(document.activeElement.tagName==='INPUT'||document.activeElement.tagName==='TEXTAREA'||document.activeElement.contentEditable==='true') return;
+  keys[e.key.toLowerCase()]=true;
+});
+document.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
+
+function applyWASD(dt){
+  const speed=(keys['shift']?S.camSpeed*S.camFastMult:S.camSpeed)*dt;
+  const fwd=new THREE.Vector3(); camera.getWorldDirection(fwd); fwd.y=0; fwd.normalize();
+  const right=new THREE.Vector3().crossVectors(fwd,new THREE.Vector3(0,1,0)).normalize();
+  if(keys['w']) orbitTarget.addScaledVector(fwd,   speed);
+  if(keys['s']) orbitTarget.addScaledVector(fwd,  -speed);
+  if(keys['a']) orbitTarget.addScaledVector(right, -speed);
+  if(keys['d']) orbitTarget.addScaledVector(right,  speed);
+  if(keys['q']) orbitTarget.y+=speed;
+  if(keys['e']) orbitTarget.y-=speed;
+}
+function updateCamera(){
+  camera.position.set(
+    orbitTarget.x+camRadius*Math.sin(camPhi)*Math.sin(camTheta),
+    orbitTarget.y+camRadius*Math.cos(camPhi),
+    orbitTarget.z+camRadius*Math.sin(camPhi)*Math.cos(camTheta)
+  );
+  camera.lookAt(orbitTarget);
+}
+updateCamera();
+
+// ================================================================
+// UNDO/REDO
+// ================================================================
+const undoStack=[],redoStack=[];
+let _suppressUndo=false;
+function currentSnapshot(){
+  return JSON.stringify({
+    nodeIdCounter,
+    nodes:nodes.map(n=>({id:n.id,name:n.name,color:n.hexColor,size:n.size,notes:n.notes,category:n.category,position:{x:n.mesh.position.x,y:n.mesh.position.y,z:n.mesh.position.z}})),
+    connections:connections.map(c=>({a:c.a.id,b:c.b.id}))
+  });
+}
+function pushUndo(){
+  if(_suppressUndo) return;
+  undoStack.push(currentSnapshot());
+  if(undoStack.length>50) undoStack.shift();
+  redoStack.length=0;
+  updateUndoButtons();
+  markModified();
+}
+function restoreSnapshot(snap){
+  _suppressUndo=true;
+  const data=JSON.parse(snap);
+  clearAll(); nodeIdCounter=data.nodeIdCounter||0;
+  const idMap={};
+  (data.nodes||[]).forEach(nd=>{
+    const p=new THREE.Vector3(nd.position.x,nd.position.y,nd.position.z);
+    idMap[nd.id]=createNode(p,{id:nd.id,name:nd.name,color:nd.color,size:nd.size,notes:nd.notes,category:nd.category});
+  });
+  (data.connections||[]).forEach(c=>{const a=idMap[c.a],b=idMap[c.b];if(a&&b)createConnection(a,b);});
+  _suppressUndo=false;
+  selectedNode=null; updatePanelState(); updateStats(); updateModeBar(); updateCategoryVisibility();
+}
+function undo(){ if(!undoStack.length){toast('Nada que deshacer');return;} redoStack.push(currentSnapshot()); restoreSnapshot(undoStack.pop()); updateUndoButtons(); toast('↩ Deshecho'); }
+function redo(){ if(!redoStack.length){toast('Nada que rehacer');return;} undoStack.push(currentSnapshot()); restoreSnapshot(redoStack.pop()); updateUndoButtons(); toast('↪ Rehecho'); }
+function updateUndoButtons(){ document.getElementById('btn-undo').disabled=!undoStack.length; document.getElementById('btn-redo').disabled=!redoStack.length; }
+document.getElementById('btn-undo').addEventListener('click',undo);
+document.getElementById('btn-redo').addEventListener('click',redo);
+updateUndoButtons();
+
+// ================================================================
+// NODES
+// ================================================================
+let nodes=[],connections=[],selectedNode=null;
+let connectMode=false,connectSource=null,nodeIdCounter=0;
+const sphereGeo=new THREE.SphereGeometry(1,28,28);
+const ringGeo  =new THREE.TorusGeometry(1.18,0.04,8,48);
+
+function updateNodeLabel(node){
+  if(node.labelEl.classList.contains('editing')) return;
+  const cat=catById[node.category||'general'];
+  let html=`<span class="node-label-name">${node.name}</span>`;
+  if(cat&&cat.id!=='general') html+=`<br><span class="node-label-cat" style="background:${cat.color}22;border:1px solid ${cat.color}55;color:${cat.color};">${cat.icon} ${cat.label}</span>`;
+  node.labelEl.innerHTML=html;
+}
+
+function createNode(position,opts={}){
+  const id  =opts.id!==undefined?opts.id:nodeIdCounter++;
+  if(opts.id!==undefined&&opts.id>=nodeIdCounter) nodeIdCounter=opts.id+1;
+  const name=opts.name||`Nodo ${id+1}`;
+  const hex =opts.color||'#1a55ee';
+  const size=opts.size||0.5;
+  const notes=opts.notes||'';
+  const cat =opts.category||'general';
+  const c3  =new THREE.Color(hex);
+
+  const mat=new THREE.MeshPhongMaterial({color:c3,emissive:c3.clone().multiplyScalar(0.18),specular:c3.clone().lerp(new THREE.Color(0xffffff),0.4),shininess:160,transparent:true,opacity:0.88});
+  const mesh=new THREE.Mesh(sphereGeo,mat);
+  mesh.scale.setScalar(0); mesh.position.copy(position); scene.add(mesh);
+  const ringMat=new THREE.MeshBasicMaterial({color:c3,transparent:true,opacity:0});
+  mesh.add(new THREE.Mesh(ringGeo,ringMat));
+  const glowMat=new THREE.SpriteMaterial({color:c3,transparent:true,opacity:S.glowInt,depthWrite:false,blending:THREE.AdditiveBlending});
+  const glow=new THREE.Sprite(glowMat); glow.scale.setScalar(3.5); mesh.add(glow);
+
+  const noteDotEl=document.createElement('div');
+  noteDotEl.style.cssText='position:absolute;width:7px;height:7px;border-radius:50%;background:#ffcc40;box-shadow:0 0 6px #ffcc40;display:none;transform:translate(-50%,0);pointer-events:none;';
+  labelsEl.appendChild(noteDotEl);
+
+  const labelEl=document.createElement('div');
+  labelEl.className='node-label'; labelsEl.appendChild(labelEl);
+
+  const node={id,mesh,mat,ringMat,glowMat,labelEl,noteDotEl,name,hexColor:hex,size,notes,category:cat};
+  nodes.push(node);
+  updateNodeLabel(node);
+  updateNoteIndicator(node);
+
+  let t=0;
+  (function step(){t=Math.min(1,t+0.06);node.mesh.scale.setScalar(size*(t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2));if(t<1)requestAnimationFrame(step);})();
+  updateStats(); return node;
+}
+
+function updateNoteIndicator(node){ node.noteDotEl.style.display=node.notes.trim()?'block':'none'; }
+
+function deleteNode(node){
+  connections=connections.filter(c=>{
+    if(c.a===node||c.b===node){scene.remove(c.line);c.line.geometry.dispose();c.line.material.dispose();return false;}
+    return true;
+  });
+  scene.remove(node.mesh); node.mat.dispose();
+  node.labelEl.remove(); node.noteDotEl.remove();
+  nodes=nodes.filter(n=>n!==node);
+  if(selectedNode===node){selectedNode=null;updatePanelState();}
+  updateStats();
+}
+function clearAll(){[...nodes].forEach(deleteNode);nodeIdCounter=0;}
+
+function duplicateNode(node){
+  pushUndo();
+  const offset=new THREE.Vector3((Math.random()-.5)*2+1.5,0,(Math.random()-.5)*2);
+  const pos=node.mesh.position.clone().add(offset);
+  const dup=createNode(pos,{name:node.name+' (copia)',color:node.hexColor,size:node.size,notes:node.notes,category:node.category});
+  selectNode(dup); toast(`"${node.name}" duplicado`);
+}
+
+function createConnection(a,b){
+  if(a===b) return;
+  if(connections.some(c=>(c.a===a&&c.b===b)||(c.a===b&&c.b===a))) return;
+  const geo=new THREE.BufferGeometry().setFromPoints([a.mesh.position.clone(),b.mesh.position.clone()]);
+  const mat=new THREE.LineBasicMaterial({color:S.connColor,transparent:true,opacity:S.connOpacity});
+  const line=new THREE.Line(geo,mat); scene.add(line);
+  connections.push({a,b,line,geo,mat}); updateStats();
+}
+
+function deleteConnection(a,b){
+  connections=connections.filter(c=>{
+    const match=(c.a===a&&c.b===b)||(c.a===b&&c.b===a);
+    if(match){scene.remove(c.line);c.line.geometry.dispose();c.line.material.dispose();}
+    return !match;
+  });
+  updateStats(); renderConnectionList();
+}
+
+function renderConnectionList(){
+  const list=document.getElementById('node-conn-list');
+  if(!list) return;
+  if(!selectedNode){list.innerHTML='<div class="conn-empty">Sin conexiones</div>';return;}
+  const nodeConns=connections.filter(c=>c.a===selectedNode||c.b===selectedNode);
+  if(!nodeConns.length){list.innerHTML='<div class="conn-empty">Sin conexiones</div>';return;}
+  list.innerHTML='';
+  nodeConns.forEach(c=>{
+    const other=c.a===selectedNode?c.b:c.a;
+    const div=document.createElement('div'); div.className='conn-item';
+    div.innerHTML=`<span class="conn-item-dot" style="background:${other.hexColor};box-shadow:0 0 4px ${other.hexColor}40"></span><span class="conn-item-name">${other.name}</span><button class="conn-item-del" title="Eliminar conexión">✕</button>`;
+    div.querySelector('.conn-item-del').addEventListener('click',()=>{pushUndo();deleteConnection(selectedNode,other);});
+    list.appendChild(div);
+  });
+}
+
+function selectNode(node){
+  if(selectedNode&&selectedNode!==node) deselectNode(selectedNode);
+  selectedNode=node; node.ringMat.opacity=0.7; node.glowMat.opacity=0.35; updatePanelState();
+}
+function deselectNode(node){if(!node)return;node.ringMat.opacity=0;node.glowMat.opacity=S.glowInt;}
+
+function updatePanelState(){
+  const sN=document.getElementById('section-node'),sD=document.getElementById('section-default');
+  if(selectedNode){
+    sN.style.display='block';sD.style.display='none';
+    document.getElementById('inp-name').value =selectedNode.name;
+    document.getElementById('inp-color').value=selectedNode.hexColor;
+    document.getElementById('inp-size').value =selectedNode.size;
+    renderCatSelectGrid();
+    renderConnectionList();
+  } else {
+    sN.style.display='none';sD.style.display='block';
+    connectMode=false;connectSource=null;
+    document.getElementById('btn-connect').classList.remove('active');
+  }
+  updateModeBar();
+}
+function updateStats(){ document.getElementById('stat-nodes').textContent=nodes.length; document.getElementById('stat-conns').textContent=connections.length; }
+
+let isDraggingNode=false;
+function updateModeBar(){
+  const b=document.getElementById('mode-bar');
+  if(connectMode){b.textContent='MODO CONEXIÓN — Click en nodo destino';b.style.color='#ffc040';b.style.borderColor='rgba(255,180,40,0.4)';}
+  else if(isDraggingNode){b.textContent='MOVIENDO NODO';b.style.color='#40ffb0';b.style.borderColor='rgba(40,255,140,0.4)';}
+  else if(selectedNode){b.textContent='SELECCIONADO — Clic derecho para más opciones';b.style.color='#4aa8ff';b.style.borderColor='rgba(74,168,255,0.4)';}
+  else{b.textContent='WASD mover · ESC ajustes · Doble-click agregar';b.style.color='#3a7acc';b.style.borderColor='rgba(60,120,220,0.3)';}
+}
+
+// ================================================================
+// FLY TO
+// ================================================================
+let flyTarget=null,flyProgress=0;
+const flyFrom={theta:0,phi:0,radius:0,tx:0,ty:0,tz:0};
+const flyTo  ={theta:0,phi:0,radius:0,tx:0,ty:0,tz:0};
+function flyToNode(node){
+  flyFrom.theta=camTheta;flyFrom.phi=camPhi;flyFrom.radius=camRadius;
+  flyFrom.tx=orbitTarget.x;flyFrom.ty=orbitTarget.y;flyFrom.tz=orbitTarget.z;
+  flyTo.tx=node.mesh.position.x;flyTo.ty=node.mesh.position.y;flyTo.tz=node.mesh.position.z;
+  flyTo.theta=camTheta;flyTo.phi=1.05;flyTo.radius=8;
+  flyTarget=node;flyProgress=0;selectNode(node);
+}
+function applyFly(dt){
+  if(!flyTarget) return;
+  flyProgress=Math.min(1,flyProgress+dt*1.8);
+  const t=flyProgress<.5?4*flyProgress*flyProgress*flyProgress:1-Math.pow(-2*flyProgress+2,3)/2;
+  orbitTarget.x=flyFrom.tx+(flyTo.tx-flyFrom.tx)*t;
+  orbitTarget.y=flyFrom.ty+(flyTo.ty-flyFrom.ty)*t;
+  orbitTarget.z=flyFrom.tz+(flyTo.tz-flyFrom.tz)*t;
+  camRadius=flyFrom.radius+(flyTo.radius-flyFrom.radius)*t;
+  camPhi   =flyFrom.phi   +(flyTo.phi   -flyFrom.phi   )*t;
+  if(flyProgress>=1) flyTarget=null;
+}
+
+// ================================================================
+// RAYCASTER
+// ================================================================
+const raycaster=new THREE.Raycaster();
+function toNDC(e){ const r=renderer.domElement.getBoundingClientRect(); return new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1); }
+function castNodes(e){ raycaster.setFromCamera(toNDC(e),camera); const hits=raycaster.intersectObjects(nodes.filter(n=>n.mesh.visible).map(n=>n.mesh)); return hits.length?nodes.find(n=>n.mesh===hits[0].object):null; }
+function castPlane(e,point){ raycaster.setFromCamera(toNDC(e),camera); const n=camera.getWorldDirection(new THREE.Vector3()).negate(); const pl=new THREE.Plane().setFromNormalAndCoplanarPoint(n,point||orbitTarget); const out=new THREE.Vector3(); raycaster.ray.intersectPlane(pl,out); return out; }
+
+// ================================================================
+// CONTEXT MENU
+// ================================================================
+const ctxMenu=document.getElementById('ctx-menu');
+let ctxNode=null,ctxPos=null;
+function showCtxMenu(x,y,node,worldPos){
+  ctxNode=node;ctxPos=worldPos;
+  document.getElementById('ctx-edit-name').style.display   =node?'flex':'none';
+  document.getElementById('ctx-open-notes').style.display  =node?'flex':'none';
+  document.getElementById('ctx-connect-node').style.display=node?'flex':'none';
+  document.getElementById('ctx-duplicate').style.display   =node?'flex':'none';
+  document.getElementById('ctx-delete-node').style.display =node?'flex':'none';
+  document.getElementById('ctx-add-here').style.display    =!node?'flex':'none';
+  // Show disconnect only if node has connections
+  const hasConns=node&&connections.some(c=>c.a===node||c.b===node);
+  document.getElementById('ctx-disconnect').style.display=hasConns?'flex':'none';
+  document.getElementById('ctx-undo-ctx').classList.toggle('disabled',!undoStack.length);
+  document.getElementById('ctx-redo-ctx').classList.toggle('disabled',!redoStack.length);
+  ctxMenu.classList.add('open');
+  let lx=x,ly=y;
+  const mw=ctxMenu.offsetWidth||180,mh=ctxMenu.offsetHeight||220;
+  if(lx+mw>innerWidth-10) lx=x-mw;
+  if(ly+mh>innerHeight-10) ly=y-mh;
+  ctxMenu.style.left=lx+'px';ctxMenu.style.top=ly+'px';
+}
+function closeCtxMenu(){ ctxMenu.classList.remove('open'); }
+document.getElementById('ctx-edit-name').addEventListener('click',()=>{if(ctxNode){closeCtxMenu();startEditing(ctxNode);}});
+document.getElementById('ctx-open-notes').addEventListener('click',()=>{if(ctxNode){closeCtxMenu();openNotes(ctxNode);}});
+document.getElementById('ctx-connect-node').addEventListener('click',()=>{
+  if(!ctxNode){closeCtxMenu();return;}
+  closeCtxMenu();selectNode(ctxNode);connectMode=true;connectSource=ctxNode;
+  document.getElementById('btn-connect').classList.add('active');updateModeBar();
+});
+document.getElementById('ctx-disconnect').addEventListener('click',()=>{
+  if(!ctxNode){closeCtxMenu();return;}
+  closeCtxMenu();selectNode(ctxNode);openDisconnectPicker(ctxNode);
+});
+document.getElementById('ctx-duplicate').addEventListener('click',()=>{if(ctxNode){closeCtxMenu();duplicateNode(ctxNode);}});
+document.getElementById('ctx-add-here').addEventListener('click',()=>{if(ctxPos){closeCtxMenu();pushUndo();selectNode(createNode(ctxPos));}});
+document.getElementById('ctx-undo-ctx').addEventListener('click',()=>{closeCtxMenu();undo();});
+document.getElementById('ctx-redo-ctx').addEventListener('click',()=>{closeCtxMenu();redo();});
+document.getElementById('ctx-delete-node').addEventListener('click',()=>{if(ctxNode){closeCtxMenu();pushUndo();deleteNode(ctxNode);}});
+document.addEventListener('click',e=>{if(!ctxMenu.contains(e.target))closeCtxMenu();});
+renderer.domElement.addEventListener('contextmenu',e=>{
+  e.preventDefault(); if(isDraggingNode) return;
+  const hit=castNodes(e);
+  const worldPos=hit?null:castPlane(e);
+  if(hit) selectNode(hit);
+  showCtxMenu(e.clientX,e.clientY,hit||null,worldPos);
+});
+
+// Disconnect picker modal (simple inline picker)
+function openDisconnectPicker(node){
+  const nodeConns=connections.filter(c=>c.a===node||c.b===node);
+  if(!nodeConns.length){toast('Sin conexiones para eliminar');return;}
+  // Reuse ctx-menu style but as a bigger overlay
+  const existing=document.getElementById('disc-picker');
+  if(existing) existing.remove();
+  const picker=document.createElement('div');
+  picker.id='disc-picker';
+  picker.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:450;background:rgba(4,12,32,0.98);backdrop-filter:blur(20px);border:1px solid rgba(74,168,255,0.35);border-radius:14px;padding:14px;min-width:240px;max-width:320px;box-shadow:0 12px 50px rgba(0,5,30,0.85);';
+  const header=document.createElement('div');
+  header.style.cssText='font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#3a7acc;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;';
+  header.innerHTML=`<span>Desconectar "${node.name}" de:</span><button onclick="this.closest('#disc-picker').remove()" style="background:none;border:none;color:#5a7a9a;cursor:pointer;font-size:16px;padding:0 2px;">✕</button>`;
+  picker.appendChild(header);
+  nodeConns.forEach(c=>{
+    const other=c.a===node?c.b:c.a;
+    const item=document.createElement('div');
+    item.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px;background:rgba(8,18,50,0.5);border:1px solid rgba(60,120,220,0.2);margin-bottom:5px;cursor:pointer;transition:background 0.13s;font-size:12px;color:#90bcd8;';
+    item.innerHTML=`<span style="width:9px;height:9px;border-radius:50%;background:${other.hexColor};box-shadow:0 0 5px ${other.hexColor};flex-shrink:0;display:inline-block;"></span><span style="flex:1;">${other.name}</span><span style="font-size:10px;color:#5a7a9a;">Eliminar ✕</span>`;
+    item.addEventListener('mouseenter',()=>item.style.background='rgba(40,90,190,0.3)');
+    item.addEventListener('mouseleave',()=>item.style.background='rgba(8,18,50,0.5)');
+    item.addEventListener('click',()=>{pushUndo();deleteConnection(node,other);item.remove();toast(`Conexión con "${other.name}" eliminada`);if(!picker.querySelectorAll('[style*="cursor:pointer"]').length)picker.remove();});
+    picker.appendChild(item);
+  });
+  const overlay=document.createElement('div');
+  overlay.id='disc-overlay';
+  overlay.style.cssText='position:fixed;inset:0;z-index:449;';
+  overlay.addEventListener('click',()=>{picker.remove();overlay.remove();});
+  document.body.appendChild(overlay);
+  document.body.appendChild(picker);
+}
+
+// ================================================================
+// MOUSE INPUT
+// ================================================================
+let mouseDownAt={x:0,y:0,t:0},lastClick={x:0,y:0,t:0};
+let dragNode=null,dragPlane=new THREE.Plane(),dragOffset=new THREE.Vector3();
+let dragPreSnapshot=null;
+
+renderer.domElement.addEventListener('mousedown',e=>{
+  if(e.button!==0) return;
+  mouseDownAt={x:e.clientX,y:e.clientY,t:Date.now()};
+  prevMouse={x:e.clientX,y:e.clientY};
+  const hit=castNodes(e);
+  if(hit&&!e.shiftKey){
+    dragNode=hit;
+    const n=camera.getWorldDirection(new THREE.Vector3()).negate();
+    dragPlane.setFromNormalAndCoplanarPoint(n,hit.mesh.position);
+    raycaster.setFromCamera(toNDC(e),camera);
+    const tmp=new THREE.Vector3();raycaster.ray.intersectPlane(dragPlane,tmp);
+    dragOffset.copy(hit.mesh.position).sub(tmp);
+    dragPreSnapshot=null;
+  } else if(!hit) isOrbiting=true;
+});
+renderer.domElement.addEventListener('mousemove',e=>{
+  const dx=e.clientX-mouseDownAt.x,dy=e.clientY-mouseDownAt.y;
+  if(dragNode&&!isDraggingNode&&Math.sqrt(dx*dx+dy*dy)>5){
+    isDraggingNode=true; dragPreSnapshot=currentSnapshot();
+    document.body.classList.add('dragging-node'); updateModeBar();
+  }
+  if(isDraggingNode&&dragNode){
+    raycaster.setFromCamera(toNDC(e),camera);
+    const t=new THREE.Vector3();raycaster.ray.intersectPlane(dragPlane,t);
+    dragNode.mesh.position.copy(t.add(dragOffset)); return;
+  }
+  if(isOrbiting){
+    camTheta-=(e.clientX-prevMouse.x)*S.camRotSens;
+    camPhi=Math.max(0.08,Math.min(Math.PI-0.08,camPhi+(e.clientY-prevMouse.y)*S.camRotSens));
+    prevMouse={x:e.clientX,y:e.clientY};
+  }
+});
+renderer.domElement.addEventListener('mouseup',e=>{
+  const wasDrag=isDraggingNode;
+  isOrbiting=false;isDraggingNode=false;document.body.classList.remove('dragging-node');
+  if(wasDrag){
+    if(dragPreSnapshot){undoStack.push(dragPreSnapshot);redoStack.length=0;updateUndoButtons();markModified();}
+    updateModeBar();dragNode=null;dragPreSnapshot=null;return;
+  }
+  dragNode=null;dragPreSnapshot=null;
+  const dx=e.clientX-mouseDownAt.x,dy=e.clientY-mouseDownAt.y;
+  if(Math.sqrt(dx*dx+dy*dy)<6&&Date.now()-mouseDownAt.t<450) handleClick(e);
+});
+renderer.domElement.addEventListener('wheel',e=>{
+  camRadius=Math.max(2,Math.min(80,camRadius+e.deltaY*S.camZoom));
+},{passive:true});
+
+// ================================================================
+// TOUCH SUPPORT (mobile)
+// ================================================================
+let _touchPinchDist=0, _touchLongTimer=null;
+
+function _pinchDist(t){
+  const dx=t[0].clientX-t[1].clientX, dy=t[0].clientY-t[1].clientY;
+  return Math.sqrt(dx*dx+dy*dy);
+}
+
+renderer.domElement.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  if(e.touches.length===1){
+    const t=e.touches[0];
+    mouseDownAt={x:t.clientX,y:t.clientY,t:Date.now()};
+    prevMouse={x:t.clientX,y:t.clientY};
+    _touchLongTimer=setTimeout(()=>{
+      renderer.domElement.dispatchEvent(new MouseEvent('contextmenu',{clientX:t.clientX,clientY:t.clientY,bubbles:true}));
+    },600);
+    const hit=castNodes(t);
+    if(hit){
+      dragNode=hit;
+      const n=camera.getWorldDirection(new THREE.Vector3()).negate();
+      dragPlane.setFromNormalAndCoplanarPoint(n,hit.mesh.position);
+      raycaster.setFromCamera(toNDC(t),camera);
+      const tmp=new THREE.Vector3();raycaster.ray.intersectPlane(dragPlane,tmp);
+      dragOffset.copy(hit.mesh.position).sub(tmp);
+      dragPreSnapshot=null;
+    } else { isOrbiting=true; }
+  } else if(e.touches.length===2){
+    clearTimeout(_touchLongTimer);
+    isOrbiting=false; dragNode=null; isDraggingNode=false;
+    _touchPinchDist=_pinchDist(e.touches);
+  }
+},{passive:false});
+
+renderer.domElement.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  clearTimeout(_touchLongTimer);
+  if(e.touches.length===1){
+    const t=e.touches[0];
+    const dx=t.clientX-mouseDownAt.x, dy=t.clientY-mouseDownAt.y;
+    if(dragNode&&!isDraggingNode&&Math.sqrt(dx*dx+dy*dy)>5){
+      isDraggingNode=true; dragPreSnapshot=currentSnapshot();
+      document.body.classList.add('dragging-node'); updateModeBar();
+    }
+    if(isDraggingNode&&dragNode){
+      raycaster.setFromCamera(toNDC(t),camera);
+      const tv=new THREE.Vector3();raycaster.ray.intersectPlane(dragPlane,tv);
+      dragNode.mesh.position.copy(tv.add(dragOffset));
+    } else if(isOrbiting){
+      camTheta-=(t.clientX-prevMouse.x)*S.camRotSens;
+      camPhi=Math.max(0.08,Math.min(Math.PI-0.08,camPhi+(t.clientY-prevMouse.y)*S.camRotSens));
+      prevMouse={x:t.clientX,y:t.clientY};
+    }
+  } else if(e.touches.length===2){
+    const nd=_pinchDist(e.touches);
+    camRadius=Math.max(2,Math.min(80,camRadius+(_touchPinchDist-nd)*0.05));
+    _touchPinchDist=nd;
+  }
+},{passive:false});
+
+renderer.domElement.addEventListener('touchend',e=>{
+  e.preventDefault();
+  clearTimeout(_touchLongTimer);
+  const wasDrag=isDraggingNode;
+  isOrbiting=false; isDraggingNode=false; document.body.classList.remove('dragging-node');
+  if(wasDrag){
+    if(dragPreSnapshot){undoStack.push(dragPreSnapshot);redoStack.length=0;updateUndoButtons();markModified();}
+    updateModeBar(); dragNode=null; dragPreSnapshot=null; return;
+  }
+  dragNode=null; dragPreSnapshot=null;
+  if(e.changedTouches.length===1){
+    const t=e.changedTouches[0];
+    const dx=t.clientX-mouseDownAt.x, dy=t.clientY-mouseDownAt.y;
+    if(Math.sqrt(dx*dx+dy*dy)<6&&Date.now()-mouseDownAt.t<450) handleClick(t);
+  }
+  updateModeBar();
+},{passive:false});
+
+function handleClick(e){
+  const now=Date.now();
+  const dx=e.clientX-lastClick.x,dy=e.clientY-lastClick.y;
+  const dbl=(now-lastClick.t)<360&&Math.sqrt(dx*dx+dy*dy)<12;
+  lastClick={x:e.clientX,y:e.clientY,t:now};
+  const hit=castNodes(e);
+  if(dbl){
+    if(hit) startEditing(hit);
+    else{const p=castPlane(e);if(p){pushUndo();const n=createNode(p);selectNode(n);}}
+    return;
+  }
+  if(connectMode&&connectSource){
+    if(hit&&hit!==connectSource){pushUndo();createConnection(connectSource,hit);toast(`Conectados: "${connectSource.name}" ⟷ "${hit.name}"`);}
+    connectMode=false;connectSource=null;
+    document.getElementById('btn-connect').classList.remove('active');updateModeBar();return;
+  }
+  if(e.shiftKey&&hit){
+    if(selectedNode&&hit!==selectedNode){pushUndo();createConnection(selectedNode,hit);toast(`Conectados: "${selectedNode.name}" ⟷ "${hit.name}"`);}
+    else if(!selectedNode) selectNode(hit);
+    return;
+  }
+  if(hit) selectNode(hit);
+  else{if(selectedNode)deselectNode(selectedNode);selectedNode=null;updatePanelState();}
+  updateModeBar();
+}
+
+// ================================================================
+// KEYBOARD
+// ================================================================
+document.addEventListener('keydown',e=>{
+  const inInput=document.activeElement.tagName==='INPUT'||document.activeElement.tagName==='TEXTAREA'||document.activeElement.contentEditable==='true';
+  if(inInput){ if(e.key==='Escape') document.activeElement.blur(); return; }
+  if((e.ctrlKey||e.metaKey)&&e.key==='f'){e.preventDefault();openSearch();return;}
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();quickSave();return;}
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey){e.preventDefault();undo();return;}
+  if((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.key==='z'&&e.shiftKey))){e.preventDefault();redo();return;}
+  if((e.key==='Delete'||e.key==='Backspace')&&selectedNode){pushUndo();deleteNode(selectedNode);}
+  if(e.key==='Escape'){
+    if(settingsOpen){closeSettings();return;}
+    if(connectMode){connectMode=false;connectSource=null;document.getElementById('btn-connect').classList.remove('active');updateModeBar();return;}
+    if(isSearchOpen){closeSearch();return;}
+    if(selectedNode){deselectNode(selectedNode);selectedNode=null;updatePanelState();return;}
+    // Nothing else active → open settings
+    openSettings();
+  }
+});
+
+// ================================================================
+// INLINE EDIT
+// ================================================================
+function startEditing(node){
+  selectNode(node);
+  node.labelEl.innerHTML='';node.labelEl.classList.add('editing');
+  const inp=document.createElement('input');
+  inp.type='text';inp.value=node.name;inp.placeholder='Nombre...';
+  node.labelEl.appendChild(inp);
+  setTimeout(()=>{inp.focus();inp.select();},10);
+  const snapBefore=currentSnapshot();
+  function commit(){
+    const v=inp.value.trim()||node.name;
+    if(v!==node.name){undoStack.push(snapBefore);redoStack.length=0;updateUndoButtons();markModified();}
+    node.name=v;updateNodeLabel(node);node.labelEl.classList.remove('editing');
+    document.getElementById('inp-name').value=v;
+  }
+  inp.addEventListener('blur',commit);
+  inp.addEventListener('keydown',ev=>{if(ev.key==='Enter')inp.blur();if(ev.key==='Escape'){inp.value=node.name;inp.blur();}ev.stopPropagation();});
+}
+
+// ================================================================
+// PANEL EVENTS
+// ================================================================
+let panelCollapsed=false;
+document.getElementById('panel-toggle').addEventListener('click',()=>{
+  panelCollapsed=!panelCollapsed;
+  document.getElementById('panel').classList.toggle('collapsed',panelCollapsed);
+  document.getElementById('panel-toggle').textContent=panelCollapsed?'▶':'◀';
+});
+
+let nameSnapshot=null;
+document.getElementById('inp-name').addEventListener('focus',()=>{nameSnapshot=currentSnapshot();});
+document.getElementById('inp-name').addEventListener('input',e=>{if(!selectedNode)return;selectedNode.name=e.target.value;updateNodeLabel(selectedNode);});
+document.getElementById('inp-name').addEventListener('blur',()=>{if(nameSnapshot){undoStack.push(nameSnapshot);redoStack.length=0;updateUndoButtons();nameSnapshot=null;markModified();}});
+
+let colorSnapshot=null;
+document.getElementById('inp-color').addEventListener('mousedown',()=>{colorSnapshot=currentSnapshot();});
+document.getElementById('inp-color').addEventListener('input',e=>{
+  if(!selectedNode)return;selectedNode.hexColor=e.target.value;
+  const c=new THREE.Color(e.target.value);
+  selectedNode.mat.color.set(c);selectedNode.mat.emissive.copy(c).multiplyScalar(0.18);
+  selectedNode.mat.specular.copy(c).lerp(new THREE.Color(0xffffff),0.4);
+  selectedNode.ringMat.color.set(c);selectedNode.glowMat.color.set(c);
+});
+document.getElementById('inp-color').addEventListener('change',()=>{if(colorSnapshot){undoStack.push(colorSnapshot);redoStack.length=0;updateUndoButtons();colorSnapshot=null;markModified();}});
+
+let sizeSnapshot=null;
+document.getElementById('inp-size').addEventListener('mousedown',()=>{sizeSnapshot=currentSnapshot();});
+document.getElementById('inp-size').addEventListener('input',e=>{if(!selectedNode)return;selectedNode.size=parseFloat(e.target.value);selectedNode.mesh.scale.setScalar(selectedNode.size);});
+document.getElementById('inp-size').addEventListener('change',()=>{if(sizeSnapshot){undoStack.push(sizeSnapshot);redoStack.length=0;updateUndoButtons();sizeSnapshot=null;markModified();}});
+
+document.getElementById('btn-add').addEventListener('click',()=>{
+  const ang=Math.random()*Math.PI*2,r=2+Math.random()*4;
+  const pos=new THREE.Vector3(orbitTarget.x+Math.cos(ang)*r,orbitTarget.y+(Math.random()-.5)*3,orbitTarget.z+Math.sin(ang)*r);
+  pushUndo();selectNode(createNode(pos));
+});
+document.getElementById('btn-connect').addEventListener('click',()=>{
+  if(!selectedNode)return;
+  connectMode=!connectMode;connectSource=connectMode?selectedNode:null;
+  document.getElementById('btn-connect').classList.toggle('active',connectMode);updateModeBar();
+});
+document.getElementById('btn-delete').addEventListener('click',()=>{if(selectedNode){pushUndo();deleteNode(selectedNode);}});
+document.getElementById('btn-search').addEventListener('click',openSearch);
+document.getElementById('btn-notes').addEventListener('click',()=>{if(selectedNode)openNotes(selectedNode);});
+
+// ================================================================
+// RICH TEXT NOTES
+// ================================================================
+let notesTarget=null;
+const notesEditor=document.getElementById('notes-editor');
+
+// Toolbar button commands
+document.querySelectorAll('.tb-btn[data-cmd]').forEach(btn=>{
+  btn.addEventListener('mousedown',e=>{
+    e.preventDefault(); // keep editor focus
+    const cmd=btn.dataset.cmd;
+    const val=btn.dataset.val||null;
+    document.execCommand(cmd,false,val);
+    notesEditor.focus();
+    updateToolbarState();
+  });
+});
+
+// Font family
+document.getElementById('tb-font').addEventListener('change',e=>{
+  document.execCommand('fontName',false,e.target.value);
+  notesEditor.focus();
+});
+
+// Font size (workaround for px sizes)
+document.getElementById('tb-size').addEventListener('change',e=>{
+  const size=e.target.value+'px';
+  document.execCommand('fontSize',false,'7');
+  const fonts=notesEditor.querySelectorAll('font[size="7"]');
+  fonts.forEach(f=>{
+    const span=document.createElement('span');
+    span.style.fontSize=size;
+    span.innerHTML=f.innerHTML;
+    f.parentNode.replaceChild(span,f);
+  });
+  notesEditor.focus();
+});
+
+// Text color
+document.getElementById('tb-color').addEventListener('input',e=>{
+  document.execCommand('foreColor',false,e.target.value);
+  notesEditor.focus();
+});
+
+// Background/highlight color
+document.getElementById('tb-bgcolor').addEventListener('input',e=>{
+  document.execCommand('backColor',false,e.target.value);
+  notesEditor.focus();
+});
+
+// Line height
+document.getElementById('tb-lh').addEventListener('change',e=>{
+  notesEditor.style.lineHeight=e.target.value;
+  notesEditor.focus();
+});
+
+// Update toolbar button active state
+function updateToolbarState(){
+  ['bold','italic','underline','strikeThrough','insertUnorderedList','insertOrderedList',
+   'justifyLeft','justifyCenter','justifyRight'].forEach(cmd=>{
+    const btn=document.querySelector(`.tb-btn[data-cmd="${cmd}"]`);
+    if(btn) btn.classList.toggle('active',document.queryCommandState(cmd));
+  });
+}
+notesEditor.addEventListener('keyup',updateToolbarState);
+notesEditor.addEventListener('mouseup',updateToolbarState);
+
+// Ctrl+B/I/U inside editor
+notesEditor.addEventListener('keydown',e=>{
+  e.stopPropagation();
+  if(e.key==='Escape'){e.preventDefault();closeNotes(false);}
+});
+
+function openNotes(node){
+  notesTarget=node;
+  document.getElementById('notes-node-name').textContent=node.name;
+  // Load HTML content
+  notesEditor.innerHTML=node.notes||'';
+  notesEditor.style.lineHeight='1.7';
+  document.getElementById('tb-lh').value='1.7';
+  document.getElementById('notes-modal').classList.add('open');
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(()=>{ notesEditor.focus(); updateToolbarState(); },60);
+}
+function closeNotes(save){
+  if(save&&notesTarget){
+    notesTarget.notes=notesEditor.innerHTML;
+    updateNoteIndicator(notesTarget);
+    markModified();
+    toast('Notas guardadas');
+  }
+  document.getElementById('notes-modal').classList.remove('open');
+  document.getElementById('modal-overlay').classList.remove('open');
+  notesTarget=null;
+}
+document.getElementById('notes-save').addEventListener('click',()=>closeNotes(true));
+document.getElementById('notes-cancel').addEventListener('click',()=>closeNotes(false));
+document.getElementById('notes-close').addEventListener('click',()=>closeNotes(false));
+document.getElementById('modal-overlay').addEventListener('click',()=>closeNotes(false));
+
+// ================================================================
+// SEARCH
+// ================================================================
+let isSearchOpen=false,searchResults=[],searchIndex=0;
+function openSearch(){
+  isSearchOpen=true;
+  document.getElementById('search-bar').classList.add('open');
+  document.getElementById('search-input').value='';
+  document.getElementById('search-results').innerHTML='';
+  document.getElementById('search-count').textContent='';
+  searchResults=[];
+  setTimeout(()=>document.getElementById('search-input').focus(),40);
+}
+function closeSearch(){
+  isSearchOpen=false;
+  document.getElementById('search-bar').classList.remove('open');
+  document.getElementById('search-results').innerHTML='';
+  searchResults=[];
+}
+function runSearch(q){
+  q=q.toLowerCase().trim();
+  if(!q){document.getElementById('search-results').innerHTML='';document.getElementById('search-count').textContent='';searchResults=[];return;}
+  searchResults=nodes.filter(n=>n.name.toLowerCase().includes(q));
+  searchIndex=0;
+  const el=document.getElementById('search-results');
+  el.innerHTML='';
+  document.getElementById('search-count').textContent=searchResults.length?`${searchResults.length} resultado${searchResults.length>1?'s':''}`:' sin resultados';
+  searchResults.forEach((n,i)=>{
+    const item=document.createElement('div');
+    item.className='search-item'+(i===0?' active':'');
+    const cat=catById[n.category||'general'];
+    item.innerHTML=`<span class="search-dot" style="background:${n.hexColor};box-shadow:0 0 5px ${n.hexColor}"></span>${n.name}<span style="margin-left:auto;font-size:9px;opacity:0.5;">${cat.icon}</span>`;
+    item.addEventListener('click',()=>{searchIndex=i;highlightSR(i);flyToNode(n);closeSearch();});
+    el.appendChild(item);
+  });
+  if(searchResults.length) flyToNode(searchResults[0]);
+}
+function highlightSR(i){ searchIndex=i;flyToNode(searchResults[i]); document.querySelectorAll('.search-item').forEach((el,j)=>el.classList.toggle('active',j===i)); }
+document.getElementById('search-input').addEventListener('input',e=>runSearch(e.target.value));
+document.getElementById('search-input').addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeSearch();return;}
+  if(e.key==='Enter'&&searchResults.length){flyToNode(searchResults[searchIndex]);closeSearch();return;}
+  if(e.key==='ArrowDown'){e.preventDefault();if(searchResults.length)highlightSR((searchIndex+1)%searchResults.length);}
+  if(e.key==='ArrowUp')  {e.preventDefault();if(searchResults.length)highlightSR((searchIndex-1+searchResults.length)%searchResults.length);}
+  e.stopPropagation();
+});
+document.getElementById('search-prev').addEventListener('click',()=>{if(searchResults.length)highlightSR((searchIndex-1+searchResults.length)%searchResults.length);});
+document.getElementById('search-next').addEventListener('click',()=>{if(searchResults.length)highlightSR((searchIndex+1)%searchResults.length);});
+
+// ================================================================
+// SAVE / LOAD  (File System Access API + fallback)
+// ================================================================
+let fileHandle=null; // FSA handle for current open file
+
+function buildGraphData(){
+  return {
+    version:5,
+    nodes:nodes.map(n=>({id:n.id,name:n.name,color:n.hexColor,size:n.size,notes:n.notes||'',category:n.category||'general',position:{x:n.mesh.position.x,y:n.mesh.position.y,z:n.mesh.position.z}})),
+    connections:connections.map(c=>({a:c.a.id,b:c.b.id}))
+  };
+}
+
+const FSA_OPTS={
+  types:[{description:'NodeSpace JSON',accept:{'application/json':['.json']}}],
+  suggestedName:'nodespace.json'
+};
+
+async function quickSave(){
+  if(fileHandle){
+    try{
+      const writable=await fileHandle.createWritable();
+      await writable.write(JSON.stringify(buildGraphData(),null,2));
+      await writable.close();
+      markSaved();
+      toast('💾 Guardado');
+    }catch(err){ if(err.name!=='AbortError') toast('Error al guardar: '+err.message); }
+  } else {
+    await saveAs();
+  }
+}
+
+async function saveAs(){
+  if(window.showSaveFilePicker){
+    try{
+      const handle=await window.showSaveFilePicker(FSA_OPTS);
+      fileHandle=handle;
+      const writable=await handle.createWritable();
+      await writable.write(JSON.stringify(buildGraphData(),null,2));
+      await writable.close();
+      setFileName(handle.name);
+      markSaved();
+      toast('💾 Guardado como: '+handle.name);
+    }catch(err){ if(err.name!=='AbortError') toast('Error: '+err.message); }
+  } else {
+    // Fallback: download
+    const blob=new Blob([JSON.stringify(buildGraphData(),null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download='nodespace.json'; a.click();
+    URL.revokeObjectURL(url);
+    toast('📥 Descargado como nodespace.json');
+    markSaved();
+  }
+}
+
+async function openFile(){
+  if(window.showOpenFilePicker){
+    try{
+      const [handle]=await window.showOpenFilePicker(FSA_OPTS);
+      fileHandle=handle;
+      const file=await handle.getFile();
+      const text=await file.text();
+      loadGraphData(JSON.parse(text));
+      setFileName(handle.name);
+      markSaved();
+      toast('📂 Abierto: '+handle.name);
+    }catch(err){ if(err.name!=='AbortError') toast('Error: '+err.message); }
+  } else {
+    document.getElementById('file-input').click();
+  }
+}
+
+function loadGraphData(data){
+  pushUndo(); _suppressUndo=true;
+  clearAll(); nodeIdCounter=data.nodeIdCounter||0;
+  const idMap={};
+  (data.nodes||[]).forEach(nd=>{
+    const p=new THREE.Vector3(nd.position.x,nd.position.y,nd.position.z);
+    idMap[nd.id]=createNode(p,{id:nd.id,name:nd.name,color:nd.color,size:nd.size,notes:nd.notes||'',category:nd.category||'general'});
+  });
+  (data.connections||[]).forEach(c=>{const a=idMap[c.a],b=idMap[c.b];if(a&&b)createConnection(a,b);});
+  _suppressUndo=false;
+  updateStats();updateCategoryVisibility();
+  toast(`Cargado: ${data.nodes.length} nodos, ${data.connections.length} conexiones`);
+}
+
+function setFileName(name){
+  document.getElementById('file-name-label').textContent=name;
+  document.getElementById('file-name-row').style.display='block';
+  document.title='NodeSpace 3D — '+name;
+}
+
+// Save status indicator
+let saveStatusTimer=null;
+let autoSaveTimer=null;
+function triggerAutoSave(){
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer=setTimeout(()=>{
+    try{
+      const payload={ts:Date.now(),data:buildGraphData()};
+      localStorage.setItem('nodespace_auto',JSON.stringify(payload));
+      markSaved();
+    }catch(e){}
+  },1200);
+}
+function markModified(){
+  const st=document.getElementById('save-status');
+  st.className='visible modified';
+  document.getElementById('save-status-text').textContent=fileHandle?'Sin guardar (Ctrl+S)':'Cambios sin guardar';
+  clearTimeout(saveStatusTimer);
+  triggerAutoSave();
+}
+function markSaved(){
+  const st=document.getElementById('save-status');
+  st.className='visible saved';
+  document.getElementById('save-status-text').textContent='Guardado';
+  clearTimeout(saveStatusTimer);
+  saveStatusTimer=setTimeout(()=>st.classList.remove('visible'),2500);
+}
+
+document.getElementById('btn-save').addEventListener('click',quickSave);
+document.getElementById('btn-save-as').addEventListener('click',saveAs);
+document.getElementById('btn-load').addEventListener('click',openFile);
+
+// Fallback file input
+document.getElementById('file-input').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{try{loadGraphData(JSON.parse(ev.target.result));}catch{toast('Error al leer el archivo');}};
+  reader.readAsText(f); e.target.value='';
+});
+
+// Drag & drop JSON
+document.addEventListener('dragover',e=>e.preventDefault());
+document.addEventListener('drop',e=>{
+  e.preventDefault();
+  const f=e.dataTransfer.files[0];
+  if(f&&f.name.endsWith('.json')){
+    const reader=new FileReader();
+    reader.onload=ev=>{try{loadGraphData(JSON.parse(ev.target.result));setFileName(f.name);}catch{toast('Error al leer el archivo');}};
+    reader.readAsText(f);
+  }
+});
+
+// Warn on close if unsaved
+window.addEventListener('beforeunload',e=>{
+  if(document.getElementById('save-status').classList.contains('modified')){
+    e.preventDefault(); e.returnValue='';
+  }
+});
+
+// ================================================================
+// TOAST
+// ================================================================
+let toastTimer=null;
+function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),2800); }
+
+// ================================================================
+// MINIMAP
+// ================================================================
+const minimapCanvas=document.getElementById('minimap-canvas');
+const mmCtx=minimapCanvas.getContext('2d');
+const MW=minimapCanvas.width,MH=minimapCanvas.height;
+let minimapVisible=true;
+let mmScale=1,mmOffX=0,mmOffZ=0,mmMinX=0,mmMinZ=0;
+document.getElementById('minimap-toggle').addEventListener('click',()=>{
+  minimapVisible=!minimapVisible;
+  document.getElementById('minimap-wrap').classList.toggle('collapsed',!minimapVisible);
+});
+minimapCanvas.addEventListener('click',e=>{
+  if(!minimapVisible) return;
+  const rect=minimapCanvas.getBoundingClientRect();
+  const mx=(e.clientX-rect.left)*(MW/rect.width),mz=(e.clientY-rect.top)*(MH/rect.height);
+  orbitTarget.x=mmMinX+(mx-mmOffX)/mmScale;
+  orbitTarget.z=mmMinZ+(mz-mmOffZ)/mmScale;
+});
+function drawMinimap(){
+  mmCtx.clearRect(0,0,MW,MH);
+  mmCtx.fillStyle='rgba(3,8,15,0.96)'; mmCtx.fillRect(0,0,MW,MH);
+  let minX=-15,maxX=15,minZ=-15,maxZ=15;
+  if(nodes.length){
+    minX=Math.min(...nodes.map(n=>n.mesh.position.x))-6;
+    maxX=Math.max(...nodes.map(n=>n.mesh.position.x))+6;
+    minZ=Math.min(...nodes.map(n=>n.mesh.position.z))-6;
+    maxZ=Math.max(...nodes.map(n=>n.mesh.position.z))+6;
+  }
+  const pad=14;
+  const sx=(MW-pad*2)/(maxX-minX),sz=(MH-pad*2)/(maxZ-minZ);
+  mmScale=Math.min(sx,sz);
+  mmOffX=pad+(MW-pad*2-(maxX-minX)*mmScale)/2;
+  mmOffZ=pad+(MH-pad*2-(maxZ-minZ)*mmScale)/2;
+  mmMinX=minX;mmMinZ=minZ;
+  function toMM(x,z){return[mmOffX+(x-minX)*mmScale,mmOffZ+(z-minZ)*mmScale];}
+  mmCtx.fillStyle='rgba(30,60,120,0.22)';
+  for(let gx=Math.ceil(minX/5)*5;gx<=maxX;gx+=5)
+    for(let gz=Math.ceil(minZ/5)*5;gz<=maxZ;gz+=5){const[px,pz]=toMM(gx,gz);mmCtx.fillRect(px-.7,pz-.7,1.4,1.4);}
+  mmCtx.strokeStyle='rgba(30,80,200,0.45)';mmCtx.lineWidth=1.2;
+  connections.forEach(c=>{
+    if(!c.a.mesh.visible||!c.b.mesh.visible) return;
+    const[ax,az]=toMM(c.a.mesh.position.x,c.a.mesh.position.z);
+    const[bx,bz]=toMM(c.b.mesh.position.x,c.b.mesh.position.z);
+    mmCtx.beginPath();mmCtx.moveTo(ax,az);mmCtx.lineTo(bx,bz);mmCtx.stroke();
+  });
+  nodes.forEach(n=>{
+    if(!n.mesh.visible) return;
+    const[px,pz]=toMM(n.mesh.position.x,n.mesh.position.z);
+    const r=Math.max(3,n.size*5);
+    mmCtx.fillStyle=n.hexColor;mmCtx.shadowColor=n.hexColor;mmCtx.shadowBlur=5;
+    mmCtx.beginPath();mmCtx.arc(px,pz,r,0,Math.PI*2);mmCtx.fill();
+    mmCtx.shadowBlur=0;
+    if(n===selectedNode){mmCtx.strokeStyle='#fff';mmCtx.lineWidth=1.5;mmCtx.beginPath();mmCtx.arc(px,pz,r+2.5,0,Math.PI*2);mmCtx.stroke();}
+  });
+  const[cx,cz]=toMM(orbitTarget.x,orbitTarget.z);
+  mmCtx.strokeStyle='rgba(74,168,255,0.2)';mmCtx.lineWidth=1;
+  mmCtx.beginPath();mmCtx.arc(cx,cz,Math.max(6,camRadius*mmScale*0.35),0,Math.PI*2);mmCtx.stroke();
+  mmCtx.strokeStyle='rgba(255,255,255,0.75)';mmCtx.lineWidth=1.2;
+  mmCtx.beginPath();mmCtx.moveTo(cx-6,cz);mmCtx.lineTo(cx+6,cz);mmCtx.moveTo(cx,cz-6);mmCtx.lineTo(cx,cz+6);mmCtx.stroke();
+  mmCtx.strokeStyle='rgba(60,120,220,0.28)';mmCtx.lineWidth=1;mmCtx.strokeRect(.5,.5,MW-1,MH-1);
+  mmCtx.fillStyle='rgba(50,100,180,0.6)';mmCtx.font='bold 17px Segoe UI,sans-serif';mmCtx.fillText('MAPA',8,22);
+}
+
+// ================================================================
+// LABELS + CONNECTIONS
+// ================================================================
+function updateLabels(){
+  nodes.forEach(n=>{
+    const p=n.mesh.position.clone().project(camera);
+    if(p.z>=1||!n.mesh.visible){n.labelEl.style.opacity='0';n.noteDotEl.style.display='none';return;}
+    const sx=(p.x*.5+.5)*innerWidth,sy=(-(p.y*.5)+.5)*innerHeight;
+    const off=n.size*28+14;
+    n.labelEl.style.opacity='1';n.labelEl.style.left=`${sx}px`;n.labelEl.style.top=`${sy+off}px`;
+    if(n.notes.trim()){n.noteDotEl.style.display='block';n.noteDotEl.style.left=`${sx}px`;n.noteDotEl.style.top=`${sy-n.size*28-6}px`;}
+    else n.noteDotEl.style.display='none';
+  });
+}
+function updateConnections(){
+  const t=clock.getElapsedTime();
+  connections.forEach(c=>{
+    const vis=c.a.mesh.visible&&c.b.mesh.visible;
+    c.line.visible=vis; if(!vis) return;
+    const a=c.geo.attributes.position;
+    a.setXYZ(0,c.a.mesh.position.x,c.a.mesh.position.y,c.a.mesh.position.z);
+    a.setXYZ(1,c.b.mesh.position.x,c.b.mesh.position.y,c.b.mesh.position.z);
+    a.needsUpdate=true;
+    c.mat.opacity=S.connPulse?(S.connOpacity*0.7+Math.sin(t*1.4+c.a.id)*S.connOpacity*0.3):S.connOpacity;
+  });
+}
+
+// ================================================================
+// RENDER LOOP
+// ================================================================
+const clock=new THREE.Clock();
+let lastTime=0;
+function animate(ts){
+  requestAnimationFrame(animate);
+  const dt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+  const t=clock.getElapsedTime();
+  applyWASD(dt);applyFly(dt);
+  if(selectedNode && S.ringPulse) selectedNode.ringMat.opacity=0.45+Math.sin(t*3.5)*0.28;
+  else if(selectedNode && !S.ringPulse) selectedNode.ringMat.opacity=0.7;
+  if(S.lightAnim){light1.position.x=Math.sin(t*S.lightSpeed)*S.lightRadius;light1.position.z=Math.cos(t*S.lightSpeed)*S.lightRadius;}
+  // Node float & spin
+  if(S.nodeFloat||S.nodeSpin){
+    nodes.forEach((n,i)=>{
+      if(S.nodeFloat) n.mesh.position.y=n._baseY!==undefined?n._baseY+Math.sin(t*S.floatSpeed+i*1.3)*S.floatAmp:(n._baseY=n.mesh.position.y,n.mesh.position.y);
+      if(S.nodeSpin){ n.mesh.rotation.y=t*S.spinSpeed+i*0.7; }
+    });
+  }
+  if(S.starRot) starPoints.rotation.y+=S.starRotSpeed*dt;
+  updateConnections();updateCamera();updateLabels();
+  if(minimapVisible) drawMinimap();
+  renderer.render(scene,camera);
+}
+requestAnimationFrame(animate);
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+
+// ================================================================
+// SLOTS (localStorage quick slots)
+// ================================================================
+function renderSlots(){
+  const grid=document.getElementById('slot-grid'); if(!grid) return;
+  grid.innerHTML='';
+  for(let i=0;i<3;i++){
+    const raw=localStorage.getItem('nodespace_slot_'+i);
+    const slot=raw?JSON.parse(raw):null;
+    const col=document.createElement('div');
+    col.style.cssText='display:flex;flex-direction:column;gap:3px;';
+    if(slot){
+      const d=new Date(slot.ts);
+      const timeStr=d.toLocaleDateString('es',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'});
+      col.innerHTML=`<button class="btn" style="padding:5px 4px;font-size:9px;letter-spacing:0;text-transform:none;margin:0;" id="slot-load-${i}">📂 Slot ${i+1}<br><span style="font-size:8px;opacity:0.5;">${timeStr}</span></button><button class="btn danger" style="padding:3px;font-size:9px;margin:0;" id="slot-del-${i}">✕</button>`;
+    } else {
+      col.innerHTML=`<button class="btn" style="padding:5px 4px;font-size:9px;letter-spacing:0;text-transform:none;margin:0;border-style:dashed;opacity:0.6;" id="slot-save-${i}">💾 Slot ${i+1}</button>`;
+    }
+    grid.appendChild(col);
+  }
+  for(let i=0;i<3;i++){
+    const raw=localStorage.getItem('nodespace_slot_'+i);
+    if(raw){
+      document.getElementById('slot-load-'+i)?.addEventListener('click',()=>{ pushUndo();loadGraphData(JSON.parse(raw).data);toast('Slot '+(i+1)+' cargado'); });
+      document.getElementById('slot-del-'+i)?.addEventListener('click',()=>{ if(confirm('¿Borrar slot '+(i+1)+'?')){ localStorage.removeItem('nodespace_slot_'+i); renderSlots(); toast('Slot '+(i+1)+' borrado'); } });
+    } else {
+      document.getElementById('slot-save-'+i)?.addEventListener('click',()=>{ localStorage.setItem('nodespace_slot_'+i,JSON.stringify({ts:Date.now(),data:buildGraphData()})); renderSlots(); toast('Guardado en slot '+(i+1)); });
+    }
+  }
+}
+renderSlots();
+
+// ================================================================
+// EFFECTS SETTINGS WIRING
+// ================================================================
+wireSettingsSlider('s-float-speed','s-float-speed-val');
+wireSettingsSlider('s-float-amp','s-float-amp-val');
+wireSettingsSlider('s-spin-speed','s-spin-speed-val');
+wireSettingsSlider('s-light-speed','s-light-speed-val');
+wireSettingsSlider('s-light-radius','s-light-radius-val');
+wireSettingsSlider('s-star-rot-speed','s-star-rot-speed-val');
+['s-node-float','s-node-spin','s-light-anim','s-ring-pulse','s-star-rot','s-light-color'].forEach(id=>{
+  const el=document.getElementById(id); if(el) el.addEventListener('change',applySettings);
+});
+// Extend applySettings to include effects
+const _origApplySettings=applySettings;
+window.applySettings=function(){
+  _origApplySettings();
+  // Effects
+  S.nodeFloat=document.getElementById('s-node-float')?.checked||false;
+  S.floatSpeed=parseFloat(document.getElementById('s-float-speed')?.value||1);
+  S.floatAmp  =parseFloat(document.getElementById('s-float-amp')?.value||0.2);
+  S.nodeSpin  =document.getElementById('s-node-spin')?.checked||false;
+  S.spinSpeed =parseFloat(document.getElementById('s-spin-speed')?.value||0.5);
+  S.lightAnim =document.getElementById('s-light-anim')?.checked!==false;
+  S.lightSpeed=parseFloat(document.getElementById('s-light-speed')?.value||0.28);
+  S.lightRadius=parseFloat(document.getElementById('s-light-radius')?.value||6);
+  const lc=document.getElementById('s-light-color')?.value||'#3366ff';
+  light1.color.set(new THREE.Color(lc));
+  S.ringPulse =document.getElementById('s-ring-pulse')?.checked!==false;
+  S.starRot   =document.getElementById('s-star-rot')?.checked||false;
+  S.starRotSpeed=parseFloat(document.getElementById('s-star-rot-speed')?.value||0.05);
+};
+// Init effects defaults in S
+S.nodeFloat=false;S.floatSpeed=1;S.floatAmp=0.2;S.nodeSpin=false;S.spinSpeed=0.5;
+S.lightAnim=true;S.lightSpeed=0.28;S.lightRadius=6;S.ringPulse=true;
+S.starRot=false;S.starRotSpeed=0.05;
+
+// ================================================================
+// AUTO-RESTORE FROM LOCALSTORAGE
+// ================================================================
+(function tryAutoRestore(){
+  try{
+    const raw=localStorage.getItem('nodespace_auto');
+    if(!raw) return;
+    const payload=JSON.parse(raw);
+    if(!payload.data||!payload.data.nodes) return;
+    _suppressUndo=true;
+    clearAll();nodeIdCounter=payload.data.nodeIdCounter||0;
+    const idMap={};
+    (payload.data.nodes||[]).forEach(nd=>{
+      const p=new THREE.Vector3(nd.position.x,nd.position.y,nd.position.z);
+      idMap[nd.id]=createNode(p,{id:nd.id,name:nd.name,color:nd.color,size:nd.size,notes:nd.notes||'',category:nd.category||'general'});
+    });
+    (payload.data.connections||[]).forEach(c=>{const a=idMap[c.a],b=idMap[c.b];if(a&&b)createConnection(a,b);});
+    _suppressUndo=false;
+    updateStats();updateCategoryVisibility();
+    const d=new Date(payload.ts);
+    markSaved();
+    toast('↺ Restaurado del '+d.toLocaleDateString('es')+' '+d.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}));
+    return; // skip demo
+  }catch(e){}
+  // ================================================================
+  // DEMO (only if no autosave)
+  // ================================================================
+  const n0=createNode(new THREE.Vector3(0,0,0),    {name:'Centro',     color:'#1a55ee',category:'general',notes:'<b>Nodo principal</b><br>Este es el centro del grafo.'});
+  const n1=createNode(new THREE.Vector3(3.5,.8,-2), {name:'Diseño UI',  color:'#22aaff',category:'tarea'});
+  const n2=createNode(new THREE.Vector3(-3,.5,2.5), {name:'Idea base',  color:'#ffcc20',category:'idea'});
+  const n3=createNode(new THREE.Vector3(1,-2,3),    {name:'Bug #42',    color:'#ff6644',category:'problema'});
+  const n4=createNode(new THREE.Vector3(-3.5,-1,-2),{name:'Referencia', color:'#aa88ff',category:'referencia'});
+  createConnection(n0,n1);createConnection(n0,n2);createConnection(n0,n3);createConnection(n1,n3);createConnection(n2,n4);
+})();
+updateStats();updateModeBar();updateCategoryVisibility();renderSlots();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(() => console.log('NodeSpace SW registrado'))
+      .catch(e => console.warn('SW error:', e));
+  });
+}
+</script>
+</body>
+</html>
