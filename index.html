@@ -1513,7 +1513,6 @@ function openNotes(node){
 function closeNotes(save){
 
   if(save && notesTarget){
-
     pushUndo();
 
     notesTarget.notes = notesEditor.innerHTML;
@@ -1532,15 +1531,7 @@ function closeNotes(save){
 
   notesTarget = null;
 }
-  document.getElementById('notes-modal').classList.remove('open');
-  document.getElementById('modal-overlay').classList.remove('open');
-  notesTarget=null;
-}
-document.getElementById('notes-save').addEventListener('click',()=>closeNotes(true));
-document.getElementById('notes-cancel').addEventListener('click',()=>closeNotes(false));
-document.getElementById('notes-close').addEventListener('click',()=>closeNotes(false));
-document.getElementById('modal-overlay').addEventListener('click',()=>closeNotes(false));
-
+  
 // ================================================================
 // SEARCH
 // ================================================================
@@ -1865,14 +1856,16 @@ function animate(ts){
   if(minimapVisible) drawMinimap();
   nodes.forEach((n,i)=>{
 
-  co*st pulse =
-      0.5 +
-     *Math*sin*t*2+i)*0.5;
+  const pulse =
+    0.5 +
+    Math.sin(t * 2 + i) * 0.5;
 
-  n.glowMat.opacity =*      *.25 +
-      pulse*0.35;
+  n.glowMat.opacity =
+    0.25 +
+    pulse * 0.35;
 
 });
+``
   renderer.render(scene,camera);
 }
 requestAnimationFrame(animate);
@@ -1923,23 +1916,49 @@ wireSettingsSlider('s-star-rot-speed','s-star-rot-speed-val');
   const el=document.getElementById(id); if(el) el.addEventListener('change',applySettings);
 });
 // Extend applySettings to include effects
-const _origApplySettings=applySettings;
-window.applySettings=function(){
+const _origApplySettings = applySettings;
+
+applySettings = function(){
+
   _origApplySettings();
-  // Effects
-  S.nodeFloat=document.getElementById('s-node-float')?.checked||false;
-  S.floatSpeed=parseFloat(document.getElementById('s-float-speed')?.value||1);
-  S.floatAmp  =parseFloat(document.getElementById('s-float-amp')?.value||0.2);
-  S.nodeSpin  =document.getElementById('s-node-spin')?.checked||false;
-  S.spinSpeed =parseFloat(document.getElementById('s-spin-speed')?.value||0.5);
-  S.lightAnim =document.getElementById('s-light-anim')?.checked!==false;
-  S.lightSpeed=parseFloat(document.getElementById('s-light-speed')?.value||0.28);
-  S.lightRadius=parseFloat(document.getElementById('s-light-radius')?.value||6);
-  const lc=document.getElementById('s-light-color')?.value||'#3366ff';
+
+  S.nodeFloat =
+    document.getElementById('s-node-float')?.checked || false;
+
+  S.floatSpeed =
+    parseFloat(document.getElementById('s-float-speed')?.value || 1);
+
+  S.floatAmp =
+    parseFloat(document.getElementById('s-float-amp')?.value || 0.2);
+
+  S.nodeSpin =
+    document.getElementById('s-node-spin')?.checked || false;
+
+  S.spinSpeed =
+    parseFloat(document.getElementById('s-spin-speed')?.value || 0.5);
+
+  S.lightAnim =
+    document.getElementById('s-light-anim')?.checked !== false;
+
+  S.lightSpeed =
+    parseFloat(document.getElementById('s-light-speed')?.value || 0.28);
+
+  S.lightRadius =
+    parseFloat(document.getElementById('s-light-radius')?.value || 6);
+
+  const lc =
+    document.getElementById('s-light-color')?.value || '#3366ff';
+
   light1.color.set(new THREE.Color(lc));
-  S.ringPulse =document.getElementById('s-ring-pulse')?.checked!==false;
-  S.starRot   =document.getElementById('s-star-rot')?.checked||false;
-  S.starRotSpeed=parseFloat(document.getElementById('s-star-rot-speed')?.value||0.05);
+
+  S.ringPulse =
+    document.getElementById('s-ring-pulse')?.checked !== false;
+
+  S.starRot =
+    document.getElementById('s-star-rot')?.checked || false;
+
+  S.starRotSpeed =
+    parseFloat(document.getElementById('s-star-rot-speed')?.value || 0.05);
 };
 // Init effects defaults in S
 S.nodeFloat=false;S.floatSpeed=1;S.floatAmp=0.2;S.nodeSpin=false;S.spinSpeed=0.5;
