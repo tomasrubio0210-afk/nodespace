@@ -1513,6 +1513,7 @@ function openNotes(node){
 function closeNotes(save){
 
   if(save && notesTarget){
+
     pushUndo();
 
     notesTarget.notes = notesEditor.innerHTML;
@@ -1531,7 +1532,7 @@ function closeNotes(save){
 
   notesTarget = null;
 }
-  
+
 // ================================================================
 // SEARCH
 // ================================================================
