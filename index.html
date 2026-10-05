@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>NodeSpace 3D</title>
 
-  /* ===== PRUEBA DE PORHUNB ===== */
-
 <!-- PWA -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#040d1e">
@@ -649,12 +647,12 @@ body.dragging-node,body.dragging-node *{cursor:grabbing !important;}
 // CATEGORIES
 // ================================================================
 const CATEGORIES=[
-  {id:'general',label:'General',icon:'⬤',color:'#4488ff'},
-  {id:'idea',label:'Idea',icon:'💡',color:'#ffcc00'},
-  {id:'tarea',label:'Tarea',icon:'✓',color:'#44cc88'},
-  {id:'problema',label:'Problema',icon:'⚠',color:'#ff6644'},
+  {id:'general',label:'General',icon:'⬤',color:'#39a0ff'},
+  {id:'idea',label:'Idea',icon:'💡',color:'#ffff55'},
+  {id:'tarea',label:'Tarea',icon:'✓',color:'#55ff99'},
+  {id:'problema',label:'Problema',icon:'⚠',color:'#ff5555'},
   {id:'referencia',label:'Referencia',icon:'📎',color:'#aa88ff'},
-  {id:'nota',label:'Nota',icon:'📝',color:'#66aaff'},
+  {id:'nota',label:'Nota',icon:'📝',color:'#55ffff'},
 ];
 const catById={}; CATEGORIES.forEach(c=>catById[c.id]=c);
 let categoryFilter=new Set(CATEGORIES.map(c=>c.id));
@@ -707,8 +705,8 @@ function updateCategoryVisibility(){
 const container=document.getElementById('canvas-container');
 const labelsEl =document.getElementById('labels-container');
 const scene=new THREE.Scene();
-scene.background=new THREE.Color(0x03080f);
-scene.fog=new THREE.FogExp2(0x03080f,0.024);
+scene.background=new THREE.Color(0x010205);
+scene.fog=new THREE.FogExp2(0x010205,0.03);
 const camera=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,0.1,300);
 const renderer=new THREE.WebGLRenderer({antialias:true});
 renderer.setPixelRatio(devicePixelRatio);
@@ -723,9 +721,14 @@ const l3=new THREE.PointLight(0x1144cc,1.0,35); l3.position.set(12,6,-8); scene.
 const grid=new THREE.GridHelper(100,100,0x071840,0x040d28); grid.position.y=-4; scene.add(grid);
 
 const starGeo=new THREE.BufferGeometry();
-const sp=[]; for(let i=0;i<700;i++) sp.push((Math.random()-.5)*160,(Math.random()-.5)*90,(Math.random()-.5)*160);
+const sp=[]; for(let i=0;i<2500;i++) sp.push((Math.random()-.5)*160,(Math.random()-.5)*90,(Math.random()-.5)*160);
 starGeo.setAttribute('position',new THREE.Float32BufferAttribute(sp,3));
-const starMat=new THREE.PointsMaterial({color:0x1a3a88,size:0.07,transparent:true,opacity:0.5});
+const starMat=new THREE.PointsMaterial({
+  color:0x55aaff,
+  size:0.03,
+  transparent:true,
+  opacity:0.8
+});
 const starPoints=new THREE.Points(starGeo,starMat); scene.add(starPoints);
 
 // ================================================================
@@ -928,13 +931,13 @@ function createNode(position,opts={}){
   const cat =opts.category||'general';
   const c3  =new THREE.Color(hex);
 
-  const mat=new THREE.MeshPhongMaterial({color:c3,emissive:c3.clone().multiplyScalar(0.18),specular:c3.clone().lerp(new THREE.Color(0xffffff),0.4),shininess:160,transparent:true,opacity:0.88});
+  const mat=new THREE.MeshPhongMaterial({color:c3,emissive:c3.clone().multiplyScalar(0.55),specular:c3.clone().lerp(new THREE.Color(0xffffff),0.4),shininess:160,transparent:true,opacity:0.88});
   const mesh=new THREE.Mesh(sphereGeo,mat);
   mesh.scale.setScalar(0); mesh.position.copy(position); scene.add(mesh);
   const ringMat=new THREE.MeshBasicMaterial({color:c3,transparent:true,opacity:0});
   mesh.add(new THREE.Mesh(ringGeo,ringMat));
   const glowMat=new THREE.SpriteMaterial({color:c3,transparent:true,opacity:S.glowInt,depthWrite:false,blending:THREE.AdditiveBlending});
-  const glow=new THREE.Sprite(glowMat); glow.scale.setScalar(3.5); mesh.add(glow);
+  const glow=new THREE.Sprite(glowMat); glow.scale.setScalar(6); mesh.add(glow);
 
   const noteDotEl=document.createElement('div');
   noteDotEl.style.cssText='position:absolute;width:7px;height:7px;border-radius:50%;background:#ffcc40;box-shadow:0 0 6px #ffcc40;display:none;transform:translate(-50%,0);pointer-events:none;';
@@ -980,7 +983,11 @@ function createConnection(a,b){
   if(a===b) return;
   if(connections.some(c=>(c.a===a&&c.b===b)||(c.a===b&&c.b===a))) return;
   const geo=new THREE.BufferGeometry().setFromPoints([a.mesh.position.clone(),b.mesh.position.clone()]);
-  const mat=new THREE.LineBasicMaterial({color:S.connColor,transparent:true,opacity:S.connOpacity});
+  const mat=new THREE.LineBasicMaterial({
+  color:0x55aaff,
+  transparent:true,
+  opacity:0.9
+});
   const line=new THREE.Line(geo,mat); scene.add(line);
   connections.push({a,b,line,geo,mat}); updateStats();
 }
@@ -1014,7 +1021,7 @@ function selectNode(node){
   if(selectedNode&&selectedNode!==node) deselectNode(selectedNode);
   selectedNode=node; node.ringMat.opacity=0.7; node.glowMat.opacity=0.35; updatePanelState();
 }
-function deselectNode(node){if(!node)return;node.ringMat.opacity=0;node.glowMat.opacity=S.glowInt;}
+function deselectNode(node){if(!node)return;node.ringMat.opacity=0;node.glowMat.opacity=0.35;}
 
 function updatePanelState(){
   const sN=document.getElementById('section-node'),sD=document.getElementById('section-default');
@@ -1472,6 +1479,19 @@ function updateToolbarState(){
 }
 notesEditor.addEventListener('keyup',updateToolbarState);
 notesEditor.addEventListener('mouseup',updateToolbarState);
+notesEditor.addEventListener('input', () => {
+
+  if(!notesTarget) return;
+
+  notesTarget.notes = notesEditor.innerHTML;
+
+  updateNoteIndicator(notesTarget);
+
+  markModified();
+
+  triggerAutoSave();
+
+});
 
 // Ctrl+B/I/U inside editor
 notesEditor.addEventListener('keydown',e=>{
@@ -1491,12 +1511,27 @@ function openNotes(node){
   setTimeout(()=>{ notesEditor.focus(); updateToolbarState(); },60);
 }
 function closeNotes(save){
-  if(save&&notesTarget){
-    notesTarget.notes=notesEditor.innerHTML;
+
+  if(save && notesTarget){
+
+    pushUndo();
+
+    notesTarget.notes = notesEditor.innerHTML;
+
     updateNoteIndicator(notesTarget);
+
     markModified();
-    toast('Notas guardadas');
+
+    triggerAutoSave();
+
+    toast('💾 Notas guardadas');
   }
+
+  document.getElementById('notes-modal').classList.remove('open');
+  document.getElementById('modal-overlay').classList.remove('open');
+
+  notesTarget = null;
+}
   document.getElementById('notes-modal').classList.remove('open');
   document.getElementById('modal-overlay').classList.remove('open');
   notesTarget=null;
@@ -1799,7 +1834,9 @@ function updateConnections(){
     a.setXYZ(0,c.a.mesh.position.x,c.a.mesh.position.y,c.a.mesh.position.z);
     a.setXYZ(1,c.b.mesh.position.x,c.b.mesh.position.y,c.b.mesh.position.z);
     a.needsUpdate=true;
-    c.mat.opacity=S.connPulse?(S.connOpacity*0.7+Math.sin(t*1.4+c.a.id)*S.connOpacity*0.3):S.connOpacity;
+    c.mat.opacity = S.connPulse
+  ? 0.55 + Math.sin(t * 4 + c.a.id) * 0.35
+  : 0.9;
   });
 }
 
@@ -1826,6 +1863,16 @@ function animate(ts){
   if(S.starRot) starPoints.rotation.y+=S.starRotSpeed*dt;
   updateConnections();updateCamera();updateLabels();
   if(minimapVisible) drawMinimap();
+  nodes.forEach((n,i)=>{
+
+  co*st pulse =
+      0.5 +
+     *Math*sin*t*2+i)*0.5;
+
+  n.glowMat.opacity =*      *.25 +
+      pulse*0.35;
+
+});
   renderer.render(scene,camera);
 }
 requestAnimationFrame(animate);
