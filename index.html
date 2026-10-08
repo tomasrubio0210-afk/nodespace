@@ -1527,6 +1527,18 @@ function closeNotes(save){
     toast('💾 Notas guardadas');
   }
 
+  document.getElementById('notes-save')
+  .addEventListener('click', () => closeNotes(true));
+
+document.getElementById('notes-cancel')
+  .addEventListener('click', () => closeNotes(false));
+
+document.getElementById('notes-close')
+  .addEventListener('click', () => closeNotes(false));
+
+document.getElementById('modal-overlay')
+  .addEventListener('click', () => closeNotes(false));
+
   document.getElementById('notes-modal').classList.remove('open');
   document.getElementById('modal-overlay').classList.remove('open');
 
@@ -1866,7 +1878,7 @@ function animate(ts){
     pulse * 0.35;
 
 });
-``
+
   renderer.render(scene,camera);
 }
 requestAnimationFrame(animate);
