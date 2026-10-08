@@ -718,14 +718,14 @@ const light1=new THREE.PointLight(0x3366ff,2.5,70); light1.position.set(0,12,0);
 const l2=new THREE.PointLight(0x0033aa,1.5,50); l2.position.set(-12,-4,8); scene.add(l2);
 const l3=new THREE.PointLight(0x1144cc,1.0,35); l3.position.set(12,6,-8); scene.add(l3);
 
-const grid=new THREE.GridHelper(100,100,0x071840,0x040d28); grid.position.y=-4; scene.add(grid);
+const grid.visible = false;
 
 const starGeo=new THREE.BufferGeometry();
-const sp=[]; for(let i=0;i<2500;i++) sp.push((Math.random()-.5)*160,(Math.random()-.5)*90,(Math.random()-.5)*160);
+const sp=[]; for(let i=0;i<9000;i++) sp.push((Math.random()-.5)*160,(Math.random()-.5)*90,(Math.random()-.5)*160);
 starGeo.setAttribute('position',new THREE.Float32BufferAttribute(sp,3));
 const starMat=new THREE.PointsMaterial({
   color:0x55aaff,
-  size:0.03,
+  size:0.01,
   transparent:true,
   opacity:0.8
 });
@@ -910,8 +910,8 @@ updateUndoButtons();
 // ================================================================
 let nodes=[],connections=[],selectedNode=null;
 let connectMode=false,connectSource=null,nodeIdCounter=0;
-const sphereGeo=new THREE.SphereGeometry(1,28,28);
-const ringGeo  =new THREE.TorusGeometry(1.18,0.04,8,48);
+const mat=new THREE.MeshBasicMaterial({color:c3,transparent:true,opacity:0.25});
+const ringGeo=new THREE.TorusGeometry(1.18,0.04,8,48);
 
 function updateNodeLabel(node){
   if(node.labelEl.classList.contains('editing')) return;
@@ -930,6 +930,11 @@ function createNode(position,opts={}){
   const notes=opts.notes||'';
   const cat =opts.category||'general';
   const c3  =new THREE.Color(hex);
+  const ringGeo=new THREE.TorusGeometry(1,0.12,16,64);
+  const ring=new THREE.Mesh(ringGeo,new THREE.MeshBasicMaterial({color:c3})
+);
+mesh.add(ring);
+node.ring = ring;
 
   const mat=new THREE.MeshPhongMaterial({color:c3,emissive:c3.clone().multiplyScalar(0.55),specular:c3.clone().lerp(new THREE.Color(0xffffff),0.4),shininess:160,transparent:true,opacity:0.88});
   const mesh=new THREE.Mesh(sphereGeo,mat);
@@ -937,7 +942,7 @@ function createNode(position,opts={}){
   const ringMat=new THREE.MeshBasicMaterial({color:c3,transparent:true,opacity:0});
   mesh.add(new THREE.Mesh(ringGeo,ringMat));
   const glowMat=new THREE.SpriteMaterial({color:c3,transparent:true,opacity:S.glowInt,depthWrite:false,blending:THREE.AdditiveBlending});
-  const glow=new THREE.Sprite(glowMat); glow.scale.setScalar(6); mesh.add(glow);
+  const glow=new THREE.Sprite(glowMat); glow.scale.setScalar(9); glowMat.opacity = 0.8; mesh.add(glow);
 
   const noteDotEl=document.createElement('div');
   noteDotEl.style.cssText='position:absolute;width:7px;height:7px;border-radius:50%;background:#ffcc40;box-shadow:0 0 6px #ffcc40;display:none;transform:translate(-50%,0);pointer-events:none;';
@@ -983,11 +988,7 @@ function createConnection(a,b){
   if(a===b) return;
   if(connections.some(c=>(c.a===a&&c.b===b)||(c.a===b&&c.b===a))) return;
   const geo=new THREE.BufferGeometry().setFromPoints([a.mesh.position.clone(),b.mesh.position.clone()]);
-  const mat=new THREE.LineBasicMaterial({
-  color:0x55aaff,
-  transparent:true,
-  opacity:0.9
-});
+  const mat=new THREE.LineDashedMaterial({color:0x55ccff,dashSize:0.2,gapSize:0.15,transparent:true,opacity:0.8});
   const line=new THREE.Line(geo,mat); scene.add(line);
   connections.push({a,b,line,geo,mat}); updateStats();
 }
@@ -1878,7 +1879,8 @@ function animate(ts){
     pulse * 0.35;
 
 });
-
+  n.ring.rotation.x += 0.004;
+  n.ring.rotation.y += 0.002;
   renderer.render(scene,camera);
 }
 requestAnimationFrame(animate);
