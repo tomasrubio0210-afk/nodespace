@@ -1510,24 +1510,30 @@ function openNotes(node){
   document.getElementById('modal-overlay').classList.add('open');
   setTimeout(()=>{ notesEditor.focus(); updateToolbarState(); },60);
 }
+
 function closeNotes(save){
 
   if(save && notesTarget){
+      pushUndo();
 
-    pushUndo();
+      notesTarget.notes = notesEditor.innerHTML;
 
-    notesTarget.notes = notesEditor.innerHTML;
+      updateNoteIndicator(notesTarget);
 
-    updateNoteIndicator(notesTarget);
+      markModified();
 
-    markModified();
+      triggerAutoSave();
 
-    triggerAutoSave();
-
-    toast('💾 Notas guardadas');
+      toast('💾 Notas guardadas');
   }
 
-  document.getElementById('notes-save')
+  document.getElementById('notes-modal').classList.remove('open');
+  document.getElementById('modal-overlay').classList.remove('open');
+
+  notesTarget = null;
+}
+
+document.getElementById('notes-save')
   .addEventListener('click', () => closeNotes(true));
 
 document.getElementById('notes-cancel')
@@ -1538,12 +1544,6 @@ document.getElementById('notes-close')
 
 document.getElementById('modal-overlay')
   .addEventListener('click', () => closeNotes(false));
-
-  document.getElementById('notes-modal').classList.remove('open');
-  document.getElementById('modal-overlay').classList.remove('open');
-
-  notesTarget = null;
-}
 
 // ================================================================
 // SEARCH
